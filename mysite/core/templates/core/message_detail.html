@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ message.title }}</title>
+  </head>
+  <body>
+    <p><a href="/board/">Back to board</a></p>
+
+    {% if user.is_authenticated %}
+      <p>Logged in as {{ user.username }} · <a href="/accounts/logout/">Log out</a></p>
+    {% else %}
+      <p><a href="/accounts/login/">Log in</a> to reply as yourself.</p>
+    {% endif %}
+
+    <h1>{{ message.title }}</h1>
+    <p>
+      <small>by {{ message.display_author }} on {{ message.created_at }}</small>
+    </p>
+    <p>{{ message.body }}</p>
+
+    <h2>Replies</h2>
+    {% if replies %}
+      <ul>
+        {% for reply in replies %}
+          <li>
+            <p>{{ reply.body }}</p>
+            <small>by {{ reply.display_author }} on {{ reply.created_at }}</small>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No replies yet.</p>
+    {% endif %}
+
+    <h3>Add a reply</h3>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Reply</button>
+    </form>
+  </body>
+</html>

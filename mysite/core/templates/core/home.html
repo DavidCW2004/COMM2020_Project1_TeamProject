@@ -8,10 +8,17 @@
   <body>
     <h1>Hello from Django</h1>
 
+    <p><a href="/board/">Go to the message board</a></p>
+
     {% if user.is_authenticated %}
       <p>You are logged in as <strong>{{ user.username }}</strong>.</p>
+      <p><a href="/accounts/logout/">Log out</a></p>
     {% else %}
-      <p>You are not logged in. Try <a href="/admin/">/admin/</a>.</p>
+      <p>
+        You are not logged in.
+        <a href="/accounts/login/">Log in</a>
+        or try <a href="/admin/">/admin/</a>.
+      </p>
     {% endif %}
 
     <p>Total users in DB: {{ user_count }}</p>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Message Board</title>
+  </head>
+  <body>
+    <h1>Message Board</h1>
+
+    <p><a href="/">Home</a></p>
+
+    {% if user.is_authenticated %}
+      <p>Logged in as {{ user.username }} · <a href="/accounts/logout/">Log out</a></p>
+    {% else %}
+      <p><a href="/accounts/login/">Log in</a> to post as yourself.</p>
+    {% endif %}
+
+    <h2>Start a new thread</h2>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Post</button>
+    </form>
+
+    <h2>Threads</h2>
+    {% if messages %}
+      <ul>
+        {% for message in messages %}
+          <li>
+            <a href="/board/{{ message.id }}/">{{ message.title }}</a>
+            <div>
+              <small>
+                by {{ message.display_author }} on {{ message.created_at }}
+              </small>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No messages yet.</p>
+    {% endif %}
+  </body>
+</html>
