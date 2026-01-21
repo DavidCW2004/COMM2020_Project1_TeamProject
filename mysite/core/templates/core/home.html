@@ -10,8 +10,10 @@
 
     {% if user.is_authenticated %}
       <p>You are logged in as <strong>{{ user.username }}</strong>.</p>
+      <p><a href="{% url 'logout' %}">Log out</a></p>
     {% else %}
-      <p>You are not logged in. Try <a href="/admin/">/admin/</a>.</p>
+      <p>You are not logged in.</p>
+      <p><a href="{% url 'login' %}">Log in</a></p>
     {% endif %}
 
     <p>Total users in DB: {{ user_count }}</p>
