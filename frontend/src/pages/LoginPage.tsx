@@ -1,10 +1,8 @@
 import { useCallback, useState } from "react";
-import type { FunctionComponent } from "react";
 import styles from "../styles/Login.module.css";
 
-type Role = "facilitator" | "learner";
 
-const LoginPage: FunctionComponent = () => {
+export default function LoginPage() {
     const [displayName, setDisplayName] = useState("");
     const [role, setRole] = useState<"learner" | "facilitator">("learner");
 
@@ -90,4 +88,3 @@ const LoginPage: FunctionComponent = () => {
         </div>);
 };
 
-export default LoginPage;
