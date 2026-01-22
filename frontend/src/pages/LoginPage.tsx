@@ -1,10 +1,8 @@
 import { useCallback, useState } from "react";
-import type { FunctionComponent } from "react";
 import styles from "../styles/Login.module.css";
 
-type Role = "facilitator" | "learner";
 
-const LoginPage: FunctionComponent = () => {
+export default function LoginPage() {
     const [displayName, setDisplayName] = useState("");
     const [role, setRole] = useState<"learner" | "facilitator">("learner");
 
@@ -23,12 +21,12 @@ const LoginPage: FunctionComponent = () => {
 
 
     return (
-        <div className={styles.login}>
+        <div className={styles.page}>
             <div className={styles.rectangleParent}>
                 <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv} />
-                    <div className={styles.socialStudyTeammates}>{`Social Study Teammates `}</div>
-                    <div className={styles.collaborativeLearningWith}>Collaborative Learning with Structured Support</div>
+                    <div className={styles.rectangleDiv}/>
+                        <h1 className={styles.socialStudyTeammates}>Social Study Teammates</h1>
+                        <h2 className={styles.collaborativeLearningWith}>Collaborative Learning with Structured Support</h2>
                 </div>
                 <div className={styles.frameChild} />
                 <div className={styles.rectangleGroup}>
@@ -90,4 +88,3 @@ const LoginPage: FunctionComponent = () => {
         </div>);
 };
 
-export default LoginPage;
