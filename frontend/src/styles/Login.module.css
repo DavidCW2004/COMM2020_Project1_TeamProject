@@ -1,22 +1,21 @@
-.login {
-    width: 100vw;
-    height: 100vh;
-    /* 👈 key change */
-    position: relative;
-    background-color: #fff;
-    overflow: hidden;
-    text-align: left;
-    font-size: 16px;
-    color: #000;
-    font-family: Inter;
-}
-
 .rectangleParent {
-    position: absolute;
-    top: 0px;
-    left: calc(50% - 232px);
     width: 463px;
     height: 1024px;
+    margin: 0 auto;
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.page {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
 }
 
 .frameChild {
@@ -113,14 +112,17 @@
 }
 
 .frameDiv {
-    position: absolute;
-    top: 57px;
-    left: -3px;
+    position: relative;
     width: 466px;
     height: 96px;
-    flex-shrink: 0;
-    text-align: center;
-    font-size: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 16px;
+    gap: 6px;
+    box-sizing: border-box;
+    margin-top: 32px;
 }
 
 .rectangleDiv {
@@ -132,31 +134,20 @@
     width: 466px;
     height: 96px;
     flex-shrink: 0;
+    z-index: -1;
 }
 
 .socialStudyTeammates {
-    position: absolute;
-    top: 0px;
-    left: calc(50% - 241px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 481px;
-    height: 56px;
-    flex-shrink: 0;
+    margin: 0;
+    text-align: center;
+    line-height: 1.1;
 }
 
 .collaborativeLearningWith {
-    position: absolute;
-    top: 64px;
-    left: -122px;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 710px;
-    height: 32px;
-    flex-shrink: 0;
+    margin: 0;
+    text-align: center;
+    line-height: 1.1;
+    font-size: 13px;
 }
 
 .displayNameLabel {
@@ -238,7 +229,6 @@
 
 .continueButton {
     position: absolute;
-    /* keep your existing top/left */
     width: 224px;
     height: 39px;
 
@@ -246,17 +236,79 @@
     border-radius: 10px;
     background-color: #606060;
     color: #fff;
-
     display: flex;
     align-items: center;
-    /* vertical centre */
     justify-content: center;
-    /* horizontal centre */
-
     cursor: pointer;
 }
 
 .continueButton:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+.rooms {
+    position: absolute;
+    top: 10px;
+    left: 0px;
+    width: 463px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 75px;
+    line-height: 1;
+    margin: 0;
+}
+
+.buttonParent {
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 24px;
+}
+
+
+.roomButton {
+    flex: 1;
+    height: 60px;
+    border-radius: 10px;
+    border: 1px solid #cfcfcf;
+    background: #f2efef;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.roomLabel {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.roomsListParent {
+width: 100%;
+height: 546px;
+position: relative;
+border-radius: 6px;
+background-color: #f2efef;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 40px 20px;
+    opacity: 0.8;
+}
+
+.emptyTitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.emptySubtitle {
+    font-size: 0.95rem;
+    color: #666;
 }
