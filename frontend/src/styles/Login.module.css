@@ -1,0 +1,262 @@
+.login {
+    width: 100vw;
+    height: 100vh;
+    /* 👈 key change */
+    position: relative;
+    background-color: #fff;
+    overflow: hidden;
+    text-align: left;
+    font-size: 16px;
+    color: #000;
+    font-family: Inter;
+}
+
+.rectangleParent {
+    position: absolute;
+    top: 0px;
+    left: calc(50% - 232px);
+    width: 463px;
+    height: 1024px;
+}
+
+.frameChild {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: rgba(255, 255, 255, 0);
+    width: 463px;
+    height: 1024px;
+    flex-shrink: 0;
+}
+
+.rectangleGroup {
+    position: absolute;
+    top: 700px;
+    left: 118px;
+    width: 224px;
+    height: 39px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.frameItem {
+    position: absolute;
+    top: -453px;
+    left: -121px;
+    border-radius: 6px;
+    background-color: #f2efef;
+    width: 466px;
+    height: 579px;
+    flex-shrink: 0;
+}
+
+.rectangleContainer {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 224px;
+    height: 39px;
+    flex-shrink: 0;
+    color: #fff;
+}
+
+.frameInner {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 10px;
+    background-color: #606060;
+    width: 224px;
+    height: 39px;
+}
+
+.continue {
+    position: static;
+    color: #fff;
+}
+
+
+.roleSelection {
+    position: absolute;
+    top: -250px;
+    left: 44px;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.rectangleIcon {
+    position: absolute;
+    top: -348px;
+    left: 0px;
+    border-radius: 10px;
+    width: 224px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.studentA {
+    position: absolute;
+    top: -340px;
+    left: 8px;
+    font-size: 12px;
+    color: #6c6c6c;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.displayName {
+    position: absolute;
+    top: -380px;
+    left: 49px;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.frameDiv {
+    position: absolute;
+    top: 57px;
+    left: -3px;
+    width: 466px;
+    height: 96px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 36px;
+}
+
+.rectangleDiv {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    border-radius: 7px;
+    background-color: #f2efef;
+    width: 466px;
+    height: 96px;
+    flex-shrink: 0;
+}
+
+.socialStudyTeammates {
+    position: absolute;
+    top: 0px;
+    left: calc(50% - 241px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 481px;
+    height: 56px;
+    flex-shrink: 0;
+}
+
+.collaborativeLearningWith {
+    position: absolute;
+    top: 64px;
+    left: -122px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 710px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.displayNameLabel {
+    display: block;
+    margin-bottom: 18px;
+    font-size: 12px;
+    text-align: center;
+    font-size: 20px;
+}
+
+.nameInput {
+    width: 224px;
+    height: 32px;
+    border-radius: 10px;
+    border: 1px solid #cfcfcf;
+    padding: 0 10px;
+    font-size: 12px;
+    background: #fff;
+    outline: none;
+}
+
+.displayNameBlock {
+    position: absolute;
+    top: -390px;
+    left: 0px;
+    width: 224px;
+    z-index: 20;
+}
+
+.roleRowFacilitator {
+    position: absolute;
+    top: -155px;
+    left: 0px;
+    width: 224px;
+    height: 44px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+}
+
+.roleRowLearner {
+    position: absolute;
+    top: -202px;
+    width: 224px;
+    height: 44px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+}
+
+.ellipse {
+    position: absolute;
+    left: 4px;
+    top: 8px;
+    width: 24px;
+    height: 28px;
+    border-radius: 50%;
+}
+
+.ellipseSelected {
+    background-color: #5e5e5e;
+}
+
+.ellipseUnselected {
+    background-color: #d9d9d9;
+}
+
+.roleLabel {
+    position: absolute;
+    left: 34px;
+    top: 12px;
+    font-size: 16px;
+    color: #000;
+}
+
+.continueButton {
+    position: absolute;
+    /* keep your existing top/left */
+    width: 224px;
+    height: 39px;
+
+    border: none;
+    border-radius: 10px;
+    background-color: #606060;
+    color: #fff;
+
+    display: flex;
+    align-items: center;
+    /* vertical centre */
+    justify-content: center;
+    /* horizontal centre */
+
+    cursor: pointer;
+}
+
+.continueButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
