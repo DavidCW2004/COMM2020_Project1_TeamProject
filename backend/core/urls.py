@@ -5,4 +5,5 @@ from . import views
 urlpatterns = [
     path("", views.home, name="home"),
     path("accounts/", include("django.contrib.auth.urls")),
+    path("api/temp-login/", views.temp_login, name="temp_login"),
 ]

@@ -1,23 +1,38 @@
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styles from "../styles/Login.module.css";
+import { createTempAccount } from "../api/client";
 
 
 export default function LoginPage() {
     const [displayName, setDisplayName] = useState("");
     const [role, setRole] = useState<"learner" | "facilitator">("learner");
+    const [error, setError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const navigate = useNavigate();
 
-    const onContinue = useCallback(() => {
-        const payload = {
-            displayName: displayName.trim(),
-            role,
-            createdAt: new Date().toISOString(),
-        };
+    const onContinue = useCallback(async () => {
+        setError(null);
+        setIsSubmitting(true);
 
-        //Placeholder "submit"
-        localStorage.setItem("sst:user", JSON.stringify(payload));
-        console.log("Saved user:", payload);
+        try {
+            const response = await createTempAccount(displayName.trim(), role);
+            const payload = {
+                id: response.id,
+                username: response.username,
+                displayName: response.display_name,
+                role: response.role,
+                createdAt: new Date().toISOString(),
+            };
 
-    }, [displayName, role]);
+            localStorage.setItem("sst:user", JSON.stringify(payload));
+            navigate("/rooms");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to create account");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [displayName, navigate, role]);
 
 
     return (
@@ -77,10 +92,12 @@ export default function LoginPage() {
                         type="button"
                         className={styles.continueButton}
                         onClick={onContinue}
-                        disabled={displayName.trim().length < 2}
+                        disabled={displayName.trim().length < 2 || isSubmitting}
                     >
                         <div className={styles.continue}>Continue</div>
                     </button>
+
+                    {error && <p>{error}</p>}
 
                 </div>
 
