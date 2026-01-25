@@ -5,8 +5,9 @@ from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets
 
-from .models import Post, Room
-from .serializers import PostSerializer # You would create this file to convert data to JSON
+from .models import Post, Room, Intervention
+from .serializers import PostSerializer
+from .agent_rules import check_all_rules, check_inactivity_rule
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-created_at')
@@ -55,9 +56,38 @@ def messages(request):
         return JsonResponse({"detail": "Room not found"}, status=404)
 
     if request.method == "GET":
+        # Run inactivity rule on fetch to allow time-based prompts even without new posts
+        check_inactivity_rule(room)
+
         posts = Post.objects.filter(room=room).order_by("created_at")
-        data = PostSerializer(posts, many=True).data
-        return JsonResponse(data, safe=False)
+        interventions = Intervention.objects.filter(room=room).order_by("created_at")
+        
+        # Combine posts and interventions
+        messages_data = []
+        for post in posts:
+            messages_data.append({
+                "type": "post",
+                "id": post.id,
+                "content": post.content,
+                "author": post.author.first_name or post.author.username,
+                "created_at": post.created_at.isoformat(),
+            })
+        
+        for intervention in interventions:
+            messages_data.append({
+                "type": "intervention",
+                "id": intervention.id,
+                "content": intervention.message,
+                "author": intervention.agent.name,
+                "explanation": intervention.explanation,
+                "rule_name": intervention.rule_name,
+                "created_at": intervention.created_at.isoformat(),
+            })
+        
+        # Sort by timestamp
+        messages_data.sort(key=lambda x: x["created_at"])
+        
+        return JsonResponse(messages_data, safe=False)
 
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
@@ -75,4 +105,5 @@ def messages(request):
         return JsonResponse({"detail": "content is required"}, status=400)
 
     post = Post.objects.create(room=room, author=request.user, content=content)
+    check_all_rules(room, post)
     return JsonResponse(PostSerializer(post).data, status=201)

@@ -120,7 +120,7 @@ export default function RoomsHubPage() {
                     ) : (
                         messages.map((message) => (
                             <div key={message.id} style={{ marginBottom: 8 }}>
-                                <strong>{message.author_name}:</strong> {message.content}
+                                <strong>{message.author}:</strong> {message.content}
                             </div>
                         ))
                     )}
