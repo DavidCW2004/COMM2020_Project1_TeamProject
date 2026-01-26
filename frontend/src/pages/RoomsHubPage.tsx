@@ -1,145 +1,210 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import styles from "../styles/Login.module.css";
-import { createRoom, fetchMessages, joinRoom, postMessage, type Message } from "../api/client";
+import Modal from "../components/Modal";
+import { createRoom, joinRoom } from "../api/client";
+import modalStyles from "../styles/Modal.module.css";
+
+type Room = {
+    id: string;
+    name: string;
+    code: string;
+};
 
 export default function RoomsHubPage() {
-    const rooms = []; // Placeholder for rooms data
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [messageText, setMessageText] = useState("");
-    const [error, setError] = useState<string | null>(null);
-    const [activeRoom, setActiveRoom] = useState<string | null>(null);
-    const [activeRoomName, setActiveRoomName] = useState<string | null>(null);
-    const pollRef = useRef<number | null>(null);
+    const rooms: Room[] = []; // Placeholder for rooms data
 
-    useEffect(() => {
-        if (!activeRoom) {
-            setMessages([]);
-            setActiveRoomName(null);
-            return;
-        }
+    const [createOpen, setCreateOpen] = useState(false);
+    const [joinOpen, setJoinOpen] = useState(false);
 
-        const load = () => {
-            fetchMessages(activeRoom)
-                .then(setMessages)
-                .catch((err) => setError(err instanceof Error ? err.message : "Failed to load messages"));
-        };
+    const [createName, setCreateName] = useState("");
+    const [joinCode, setJoinCode] = useState("");
 
-        load();
-        pollRef.current = window.setInterval(load, 2000);
+    const [loading, setLoading] = useState(false);
+    const [modalError, setModalError] = useState<string | null>(null);
 
-        return () => {
-            if (pollRef.current) {
-                window.clearInterval(pollRef.current);
-            }
-        };
-    }, [activeRoom]);
-
-    const onSend = async () => {
-        const content = messageText.trim();
-        if (!content) {
-            return;
-        }
-
-        if (!activeRoom) {
-            setError("Join or create a room first");
-            return;
-        }
-
-        try {
-            const created = await postMessage(activeRoom, content);
-            setMessages((prev) => [...prev, created]);
-            setMessageText("");
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to send message");
-        }
+    const closeCreate = () => {
+        setCreateOpen(false);
+        setModalError(null);
+        setLoading(false);
     };
 
-    const onCreateRoom = async () => {
-        const name = window.prompt("Enter a room name (for your reference):");
+    const closeJoin = () => {
+        setJoinOpen(false);
+        setModalError(null);
+        setLoading(false);
+    };
+
+    const openCreate = () => {
+        setModalError(null);
+        setJoinOpen(false);
+        setCreateOpen(true);
+    };
+
+    const openJoin = () => {
+        setModalError(null);
+        setCreateOpen(false);
+        setJoinOpen(true);
+    };
+
+    const handleCreateRoom = async () => {
+        const name = createName.trim();
         if (!name) {
+            setModalError("Please enter a room name.");
             return;
         }
 
+        setLoading(true);
+        setModalError(null);
+
         try {
-            const room = await createRoom(name.trim());
-            setActiveRoom(room.code);
-            setActiveRoomName(room.name || name.trim());
-            window.alert(`Room created. Share this code to join: ${room.code}`);
+            const room = await createRoom(name);
+
+            // Reset UI
+            setCreateName("");
+            closeCreate();
+
+
+            alert(`Room created. Share this code to join: ${room.code}`);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to create room");
+            setModalError(err instanceof Error ? err.message : "Failed to create room");
+        } finally {
+            setLoading(false);
         }
     };
 
-    const onJoinRoom = async () => {
-        const code = window.prompt("Enter a room code to join:");
+    const handleJoinRoom = async () => {
+        const code = joinCode.trim();
         if (!code) {
+            setModalError("Please enter a room code.");
             return;
         }
 
+        setLoading(true);
+        setModalError(null);
+
         try {
-            const room = await joinRoom(code.trim());
-            setActiveRoom(room.code);
-            setActiveRoomName(room.name || null);
+            const room = await joinRoom(code);
+
+
+            setJoinCode("");
+            closeJoin();
+
+
+            alert(`Joined room: ${room.code}`);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to join room");
+            setModalError(err instanceof Error ? err.message : "Failed to join room");
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div className={styles.page}>
-        <div className={styles.rectangleParent}>
-            <div className={styles.frameDiv}>
-                <div className={styles.rectangleDiv}/>
+            <div className={styles.rectangleParent}>
+                <div className={styles.frameDiv}>
+                    <div className={styles.rectangleDiv} />
                     <h1 className={styles.rooms}>Rooms</h1>
-            </div>
+                </div>
 
-            <div className={styles.buttonParent}>
-                <button className={styles.roomButton} onClick={onCreateRoom}>
-                    <div className={styles.roomLabel}>Create Room</div>
-                </button>
-                <button className={styles.roomButton} onClick={onJoinRoom}>
-                    <div className={styles.roomLabel}>Join Room</div>
-                </button>
-            </div>
+                <div className={styles.buttonParent}>
+                    <button className={styles.roomButton} onClick={openCreate}>
+                        <div className={styles.roomLabel}>Create Room</div>
+                    </button>
 
-            <div style={{ width: "100%" }}>
-                <h2 style={{ margin: "16px 0 8px" }}>
-                    Room Chat{activeRoom ? ` — ${activeRoom}${activeRoomName ? ` (${activeRoomName})` : ""}` : ""}
-                </h2>
-                <div style={{
-                    border: "1px solid #cfcfcf",
-                    borderRadius: 8,
-                    padding: 12,
-                    minHeight: 160,
-                    maxHeight: 220,
-                    overflowY: "auto",
-                    background: "#fff"
-                }}>
-                    {messages.length === 0 ? (
-                        <p style={{ opacity: 0.7 }}>No messages yet.</p>
+                    <button className={styles.roomButton} onClick={openJoin}>
+                        <div className={styles.roomLabel}>Join Room</div>
+                    </button>
+                </div>
+
+                <div className={styles.roomsListParent}>
+                    {rooms.length === 0 ? (
+                        <div className={styles.emptyState}>
+                            <p className={styles.noRoomsAvailable}>No rooms available.</p>
+                            <p className={styles.createOrJoinARoom}>Create a room to get started.</p>
+                        </div>
                     ) : (
-                        messages.map((message) => (
-                            <div key={message.id} style={{ marginBottom: 8 }}>
-                                <strong>{message.author}:</strong> {message.content}
+                        rooms.map((room) => (
+                            <div key={room.id}>
+                                {/* Render room details here */}
+                                <div>{room.name}</div>
+                                <div>{room.code}</div>
                             </div>
                         ))
                     )}
                 </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <input
-                        type="text"
-                        value={messageText}
-                        onChange={(event) => setMessageText(event.target.value)}
-                        placeholder="Type a message"
-                        style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #cfcfcf" }}
-                    />
-                    <button type="button" onClick={onSend} style={{ padding: "8px 12px" }}>
-                        Send
-                    </button>
-                </div>
-                {error && <p style={{ color: "#b00020" }}>{error}</p>}
             </div>
 
+            <Modal
+                isOpen={createOpen}
+                onClose={closeCreate}
+                footer={
+                    <button
+                        onClick={handleCreateRoom}
+                        disabled={loading}
+                        style={{
+                            width: 160,
+                            height: 40,
+                            borderRadius: 8,
+                            background: "#bdbdbd",
+                            border: "none",
+                            color: "#fff",
+                            cursor: "pointer",
+                        }}
+                    >
+                        Continue
+                    </button>
+                }
+            >
+                <h2 style={{ margin: 0 }}>Create a Room</h2>
+
+                <div className={modalStyles.form}>
+                    <input
+                        className={modalStyles.input}
+                        value={createName}
+                        onChange={(e) => setCreateName(e.target.value)}
+                        placeholder="Room Name"
+                        disabled={loading}
+                    />
+                    {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
+                </div>
+            </Modal>
+
+            {/* Join Room Modal */}
+            <Modal
+                isOpen={joinOpen}
+                onClose={closeJoin}
+                footer={
+                    <button
+                        onClick={handleJoinRoom}
+                        disabled={loading}
+                        style={{
+                            width: 160,
+                            height: 40,
+                            borderRadius: 8,
+                            background: "#bdbdbd",
+                            border: "none",
+                            color: "#fff",
+                            cursor: "pointer",
+                        }}
+                    >
+                        Continue
+                    </button>
+                }
+            >
+                <h2 style={{ margin: 0 }}>Join a Room</h2>
+
+                <div className={modalStyles.form}>
+                    <input
+                        className={modalStyles.input}
+                        value={joinCode}
+                        onChange={(e) => setJoinCode(e.target.value)}
+                        placeholder="Room Code"
+                        disabled={loading}
+                    />
+                    {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
+                </div>
+            </Modal>
+
         </div>
-        </div>);
+    );
 }
