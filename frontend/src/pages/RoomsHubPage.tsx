@@ -3,6 +3,7 @@ import styles from "../styles/Login.module.css";
 import Modal from "../components/Modal";
 import { createRoom, joinRoom } from "../api/client";
 import modalStyles from "../styles/Modal.module.css";
+import { useNavigate } from "react-router-dom";
 
 type Room = {
     id: string;
@@ -11,6 +12,8 @@ type Room = {
 };
 
 export default function RoomsHubPage() {
+
+    const navigate = useNavigate();
     const rooms: Room[] = []; // Placeholder for rooms data
 
     const [createOpen, setCreateOpen] = useState(false);
@@ -81,10 +84,7 @@ export default function RoomsHubPage() {
 
     const handleJoinRoom = async () => {
         const code = joinCode.trim();
-        if (!code) {
-            setModalError("Please enter a room code.");
-            return;
-        }
+        if (!code) return;
 
         setLoading(true);
         setModalError(null);
@@ -92,18 +92,17 @@ export default function RoomsHubPage() {
         try {
             const room = await joinRoom(code);
 
+            setJoinOpen(false);
 
-            setJoinCode("");
-            closeJoin();
+            navigate(`/room/${room.code}`);
 
-
-            alert(`Joined room: ${room.code}`);
         } catch (err) {
             setModalError(err instanceof Error ? err.message : "Failed to join room");
         } finally {
             setLoading(false);
         }
     };
+
 
     return (
         <div className={styles.page}>
@@ -175,8 +174,8 @@ export default function RoomsHubPage() {
                     {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
                 </div>
             </Modal>
-            
-            
+
+
             <Modal
                 isOpen={createSuccessOpen}
                 onClose={() => {
@@ -214,11 +213,7 @@ export default function RoomsHubPage() {
                             type="button"
                             onClick={() => {
                                 if (!createdRoom) return;
-
-                                setCreateSuccessOpen(false);
-
-
-                                console.log("Go to room:", createdRoom.code);
+                                navigate(`/room/${createdRoom.code}`);
                             }}
                             style={{
                                 width: 220,
