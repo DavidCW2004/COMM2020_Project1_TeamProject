@@ -19,30 +19,58 @@ def rooms(request):
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
     try:
         payload = json.loads(request.body or "{}")
     except json.JSONDecodeError:
         return JsonResponse({"detail": "Invalid JSON"}, status=400)
 
-    action = (payload.get("action") or "").strip()
+    action = (payload.get("action") or "").strip().lower()
+
     if action == "create":
         name = (payload.get("name") or "").strip()
+
+        # Optional: enforce a name
+        if not name:
+            return JsonResponse({"detail": "name is required"}, status=400)
+
+        # Ensure unique code (rare collision, but easy to guard)
         code = get_random_string(6).upper()
+        while Room.objects.filter(code=code).exists():
+            code = get_random_string(6).upper()
+
         room = Room.objects.create(code=code, name=name)
-        return JsonResponse({"code": room.code, "name": room.name})
+        room.members.add(request.user)  # ✅ creator joins automatically
+
+        return JsonResponse({
+            "code": room.code,
+            "name": room.name,
+            "members_count": room.members.count(),
+        }, status=201)
 
     if action == "join":
         code = (payload.get("code") or "").strip().upper()
         if not code:
             return JsonResponse({"detail": "code is required"}, status=400)
+
         try:
             room = Room.objects.get(code=code)
         except Room.DoesNotExist:
             return JsonResponse({"detail": "Room not found"}, status=404)
-        return JsonResponse({"code": room.code, "name": room.name})
+
+        already_member = room.members.filter(id=request.user.id).exists()
+        room.members.add(request.user)  # ✅ joiner becomes a member
+
+        return JsonResponse({
+            "code": room.code,
+            "name": room.name,
+            "joined": not already_member,
+            "members_count": room.members.count(),
+        }, status=200)
 
     return JsonResponse({"detail": "Invalid action"}, status=400)
-
 
 @csrf_exempt
 def messages(request):
@@ -107,3 +135,39 @@ def messages(request):
     post = Post.objects.create(room=room, author=request.user, content=content)
     check_all_rules(room, post)
     return JsonResponse(PostSerializer(post).data, status=201)
+
+@csrf_exempt
+@csrf_exempt
+def room_members(request, code):
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    try:
+        room = Room.objects.get(code=code.strip().upper())
+    except Room.DoesNotExist:
+        return JsonResponse({"detail": "Room not found"}, status=404)
+
+    members = room.members.all().order_by("first_name", "username")
+    data = [{"id": u.id, "name": (u.first_name or u.username)} for u in members]
+    return JsonResponse(data, safe=False)
+
+
+@csrf_exempt
+def room_detail(request, code):
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    code = (code or "").strip().upper()
+
+    try:
+        room = Room.objects.get(code=code)
+    except Room.DoesNotExist:
+        return JsonResponse({"detail": "Room not found"}, status=404)
+
+    return JsonResponse({"code": room.code, "name": room.name})
