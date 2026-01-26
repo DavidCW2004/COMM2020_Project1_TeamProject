@@ -22,6 +22,10 @@ export default function RoomsHubPage() {
     const [loading, setLoading] = useState(false);
     const [modalError, setModalError] = useState<string | null>(null);
 
+    const [createSuccessOpen, setCreateSuccessOpen] = useState(false);
+    const [createdRoom, setCreatedRoom] = useState<{ code: string; name: string } | null>(null);
+    const [copied, setCopied] = useState(false);
+
     const closeCreate = () => {
         setCreateOpen(false);
         setModalError(null);
@@ -59,12 +63,15 @@ export default function RoomsHubPage() {
         try {
             const room = await createRoom(name);
 
-            // Reset UI
+
+            setCreateOpen(false);
+
+
+            setCreatedRoom({ code: room.code, name: room.name || name });
+            setCreateSuccessOpen(true);
+
             setCreateName("");
-            closeCreate();
-
-
-            alert(`Room created. Share this code to join: ${room.code}`);
+            setModalError(null);
         } catch (err) {
             setModalError(err instanceof Error ? err.message : "Failed to create room");
         } finally {
@@ -168,8 +175,82 @@ export default function RoomsHubPage() {
                     {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
                 </div>
             </Modal>
+            
+            
+            <Modal
+                isOpen={createSuccessOpen}
+                onClose={() => {
+                    setCreateSuccessOpen(false);
+                    setCreatedRoom(null);
+                    setCopied(false);
+                }}
+                footer={
+                    <div style={{ display: "grid", gap: 10, width: "100%", justifyItems: "center" }}>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                if (!createdRoom) return;
+                                try {
+                                    await navigator.clipboard.writeText(createdRoom.code);
+                                    setCopied(true);
+                                    window.setTimeout(() => setCopied(false), 1500);
+                                } catch {
+                                    setModalError("Could not copy to clipboard.");
+                                }
+                            }}
+                            style={{
+                                width: 220,
+                                height: 38,
+                                borderRadius: 8,
+                                background: "#e0e0e0",
+                                border: "none",
+                                cursor: "pointer",
+                            }}
+                        >
+                            {copied ? "Copied!" : "Copy Code"}
+                        </button>
 
-            {/* Join Room Modal */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!createdRoom) return;
+
+                                setCreateSuccessOpen(false);
+
+
+                                console.log("Go to room:", createdRoom.code);
+                            }}
+                            style={{
+                                width: 220,
+                                height: 38,
+                                borderRadius: 8,
+                                background: "#bdbdbd",
+                                border: "none",
+                                color: "#fff",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Go to Room
+                        </button>
+                    </div>
+                }
+            >
+                <h2 style={{ margin: 0 }}>
+                    Room Created 🎉
+                </h2>
+
+                <div className={modalStyles.form} style={{ marginTop: 12 }}>
+                    <p style={{ margin: 0 }}>
+                        <strong>Room Name:</strong> {createdRoom?.name ?? ""}
+                    </p>
+                    <p style={{ margin: 0 }}>
+                        <strong>Join Code :</strong> {createdRoom?.code ?? ""}
+                    </p>
+
+                    {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
+                </div>
+            </Modal>
+
             <Modal
                 isOpen={joinOpen}
                 onClose={closeJoin}
