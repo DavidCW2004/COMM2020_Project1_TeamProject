@@ -34,6 +34,21 @@ export default function ActivityCataloguePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const [query, setQuery] = useState("");
+    const [typeFilter, setTypeFilter] = useState<"all" | Activity["activity_type"]>("all");
+
+    const filteredActivities = activities.filter((a) => {
+        const q = query.trim().toLowerCase();
+        const matchesQuery =
+            !q ||
+            a.name.toLowerCase().includes(q) ||
+            (a.description ?? "").toLowerCase().includes(q);
+
+        const matchesType = typeFilter === "all" || a.activity_type === typeFilter;
+
+        return matchesQuery && matchesType;
+    });
+
     useEffect(() => {
         if (!code) return;
 
@@ -94,9 +109,30 @@ export default function ActivityCataloguePage() {
                     <div className={styles.collaborativeLearningWith}>Code : {code ?? ""}</div>
                 </div>
 
-                <div className={styles.membersListParent}>
-                    <h1 className={styles.membersHeading}>Activity Catalogue</h1>
 
+                <div className={styles.activityListParent}>
+                    <h1 className={styles.membersHeading}>Activity Catalogue</h1>
+                    <div className={styles.catalogueControls}>
+                        <input
+                            className={styles.searchInput}
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="search activities..."
+                            aria-label="Search activities"
+                        />
+
+                        <select
+                            className={styles.filterSelect}
+                            value={typeFilter}
+                            onChange={(e) => setTypeFilter(e.target.value as any)}
+                            aria-label="Filter activities"
+                        >
+                            <option value="all">Filter</option>
+                            <option value="problem-solving">Problem-Solving</option>
+                            <option value="discussion">Discussion</option>
+                            <option value="design critique">Design Critique</option>
+                        </select>
+                    </div>
                     {loading && <div>Loading activities…</div>}
                     {error && <div style={{ color: "crimson" }}>{error}</div>}
 
@@ -104,10 +140,10 @@ export default function ActivityCataloguePage() {
                         <div className={styles.scrollArea}>No activities available.</div>
                     )}
 
-                    {!loading && !error && activities.length > 0 && (
+                    {!loading && !error && filteredActivities.length > 0 && (
                         <div className={styles.activityListScroll}>
                             <div style={{ display: "grid", gap: 12 }}>
-                                {activities.map((a) => (
+                                {filteredActivities.map((a) => (
                                     <div
                                         key={a.id}
                                         style={{
