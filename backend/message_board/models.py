@@ -14,6 +14,8 @@ class Room(models.Model):
         ("decide", "Decide"),
     ])
 
+    members = models.ManyToManyField(User, related_name="rooms", blank=True)  # ✅ add this
+
     def __str__(self):
         return self.code
 
@@ -60,3 +62,5 @@ class Intervention(models.Model):
     
     def __str__(self):
         return f'{self.agent.name} in {self.room.code}: {self.rule_name}'
+    
+

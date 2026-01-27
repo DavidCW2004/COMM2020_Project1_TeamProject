@@ -104,3 +104,32 @@ export async function joinRoom(code: string) {
 
 	return (await response.json()) as { code: string; name: string };
 }
+
+
+export async function fetchRoom(code: string) {
+	const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/`, {
+		method: "GET",
+		credentials: "include",
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to fetch room");
+	}
+
+	return res.json() as Promise<{ code: string; name: string }>;
+}
+
+export async function fetchRoomMembers(code: string) {
+	const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/members/`, {
+		method: "GET",
+		credentials: "include",
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to fetch room members");
+	}
+
+	return res.json() as Promise<Array<{ id: number; name: string }>>;
+}
