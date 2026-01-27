@@ -1,5 +1,6 @@
 from datetime import timedelta
 from django.utils import timezone
+from django.db.models import Count
 from .models import Room, Post, Agent, Intervention
 
 
@@ -39,6 +40,132 @@ def check_inactivity_rule(room):
             )
             return True
     return False
+
+
+def check_individual_inactivity_rule(room):
+    """
+    Rule: Specific users haven't participated in the last 3 minutes
+    Agent: Facilitator
+    Trigger: Personalized prompt to inactive users
+    """
+    three_minutes_ago = timezone.now() - timedelta(minutes=3)
+    
+    # Get all room members
+    room_members = room.members.all()
+    
+    # Get users who posted in the last 3 minutes
+    active_users = Post.objects.filter(
+        room=room,
+        created_at__gte=three_minutes_ago
+    ).values_list('author', flat=True).distinct()
+    
+    # Find inactive users
+    inactive_users = room_members.exclude(id__in=active_users)
+    
+    if not inactive_users.exists():
+        return False
+    
+    # Create interventions for each inactive user
+    try:
+        agent = Agent.objects.get(name="Facilitator Agent")
+    except Agent.DoesNotExist:
+        return False
+    
+    triggered = False
+    
+    for user in inactive_users:
+        # Check if we already triggered this rule recently for this user
+        recent_intervention = Intervention.objects.filter(
+            agent=agent,
+            room=room,
+            rule_name="individual_inactivity",
+            created_at__gte=three_minutes_ago
+        ).exists()
+        
+        if not recent_intervention:
+            explanation = f"User {user.username} hasn't posted in the last 3 minutes."
+            message = f"Hi {user.first_name or user.username}, we'd love to hear your thoughts!"
+            
+            Intervention.objects.create(
+                agent=agent,
+                room=room,
+                rule_name="individual_inactivity",
+                message=message,
+                explanation=explanation
+            )
+            triggered = True
+    
+    return triggered
+
+
+def check_equity_rule(room):
+    """
+    Rule: Unequal participation between users in current phase
+    Agent: Equity
+    Trigger: Encourage participation from underrepresented voices
+    """
+    posts = Post.objects.filter(room=room)
+    
+    if posts.count() < 3:
+        return False
+    
+    # Count messages per user in this room
+    user_message_counts = posts.values('author__username', 'author__first_name', 'author__id').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Calculate average messages per user
+    total_messages = posts.count()
+    total_users = room.members.count()
+    
+    if total_users < 2:
+        return False
+    
+    expected_average = total_messages / total_users
+    
+    # Find users with significantly fewer messages (less than 50% of average)
+    participation_threshold = expected_average * 0.5
+    
+    try:
+        agent = Agent.objects.get(name="Equity Agent")
+    except Agent.DoesNotExist:
+        return False
+    
+    triggered = False
+    posted_users_ids = set(user_message_counts.values_list('author__id', flat=True))
+    
+    # Check all room members
+    for member in room.members.all():
+        member_post_count = posts.filter(author=member).count()
+        
+        # Trigger if user hasn't posted or has posted significantly less
+        if member_post_count < participation_threshold:
+            # Check if we recently triggered this for this user to avoid spam
+            recent_intervention = Intervention.objects.filter(
+                agent=agent,
+                room=room,
+                rule_name="unequal_participation",
+                created_at__gte=timezone.now() - timedelta(minutes=5)
+            ).filter(message__contains=member.username).exists()
+            
+            if not recent_intervention:
+                # Calculate their percentage of total messages
+                percentage = (member_post_count / total_messages * 100) if total_messages > 0 else 0
+                expected_percentage = (100 / total_users)
+                
+                explanation = f"{member.username} has posted {member_post_count} messages ({percentage:.0f}% of total), below the expected {expected_percentage:.0f}% for equal participation."
+                message = f"{member.first_name or member.username}, we notice you've been quiet. Your perspective is important—please share your thoughts!"
+                
+                Intervention.objects.create(
+                    agent=agent,
+                    room=room,
+                    rule_name="unequal_participation",
+                    message=message,
+                    explanation=explanation
+                )
+                triggered = True
+    
+    return triggered
 
 
 def check_evidence_rule(room, post):
@@ -81,6 +208,14 @@ def check_all_rules(room, new_post=None):
     # Inactivity rule (checks room state)
     if check_inactivity_rule(room):
         triggered.append("inactivity_2min")
+    
+    # Individual inactivity rule (checks per-user participation)
+    if check_individual_inactivity_rule(room):
+        triggered.append("individual_inactivity")
+    
+    # Equity rule (checks participation balance across users)
+    if check_equity_rule(room):
+        triggered.append("unequal_participation")
     
     # Evidence rule (checks specific post)
     if new_post and check_evidence_rule(room, new_post):

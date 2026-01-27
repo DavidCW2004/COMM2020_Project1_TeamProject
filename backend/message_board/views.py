@@ -141,7 +141,6 @@ def messages(request):
     return JsonResponse(PostSerializer(post).data, status=201)
 
 @csrf_exempt
-@csrf_exempt
 def room_members(request, code):
     if request.method != "GET":
         return JsonResponse({"detail": "Method not allowed"}, status=405)

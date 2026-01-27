@@ -10,22 +10,26 @@
         {
           "name": "understand",
           "prompt": "Identify the constraints of the sorting problem.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         },
         {
           "name": "propose",
           "prompt": "Suggest a specific algorithm (e.g., QuickSort vs MergeSort).",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "critique",
           "prompt": "Discuss the Big O complexity and memory trade-offs.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Select the final algorithm to implement.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         }
       ]
     }
@@ -41,22 +45,26 @@
         {
           "name": "understand",
           "prompt": "Outline the key principles of Agile, Waterfall, and Scrum.",
-          "time_limit_minutes": 7
+          "time_limit_minutes": 7,
+          "turn_limit": 14
         },
         {
           "name": "propose",
           "prompt": "Advocate for one methodology based on a project with well defined requirements and tight deadlines.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "critique",
           "prompt": "Evaluate the strengths and weaknesses of each approach.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Choose the most suitable methodology for a sample project.",
-          "time_limit_minutes": 8
+          "time_limit_minutes": 8,
+          "turn_limit": 16
         }
       ]
     }
@@ -72,17 +80,20 @@
         {
           "name": "understand",
           "prompt": "Identify the main functionalities of the code snippet provided.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         },
         {
           "name": "propose",
           "prompt": "Highlight potential safety and security vulnerabilities in the code.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Recommend specific improvements to enhance code safety and security.",
-          "time_limit_minutes": 7
+          "time_limit_minutes": 7,
+          "turn_limit": 14
         }
       ]
     }
@@ -98,17 +109,20 @@
         {
           "name": "understand",
           "prompt": "List the hardware required for a basic LAN.",
-          "time_limit_minutes": 6
+          "time_limit_minutes": 6,
+          "turn_limit": 12
         },
         {
           "name": "propose",
           "prompt": "Suggest a topology (Star, Mesh, etc.) to handle a single point of failure.",
-          "time_limit_minutes": 12
+          "time_limit_minutes": 12,
+          "turn_limit": 24
         },
         {
           "name": "decide",
           "prompt": "Finalize the hardware list and topology map.",
-          "time_limit_minutes": 7
+          "time_limit_minutes": 7,
+          "turn_limit": 14
         }
       ]
     }
@@ -124,17 +138,20 @@
         {
           "name": "understand",
           "prompt": "Identify the current normal form of the database and how each object relates to each other.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         },
         {
           "name": "propose",
           "prompt": "Suggest changes to eliminate redundancy and ensure data integrity.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Finalize the normalized database schema.",
-          "time_limit_minutes": 8
+          "time_limit_minutes": 8,
+          "turn_limit": 16
         }
       ]
     }
@@ -150,17 +167,20 @@
         {
           "name": "understand",
           "prompt": "Review the given code and assess its intended functionality.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         },
         {
           "name": "spot",
           "prompt": "List all syntax errors found in the code snippet.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "fix",
           "prompt": "Provide corrected code with explanations for each change made.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         }
       ]
     }
@@ -176,22 +196,26 @@
         {
           "name": "understand",
           "prompt": "Define open source and proprietary software, including key characteristics of each.",
-          "time_limit_minutes": 7
+          "time_limit_minutes": 7,
+          "turn_limit": 14
         },
         {
           "name": "pros and cons",
           "prompt": "List out the pros and cons of each model for this specific scenario.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Conclude which model is more advantageous.",
-          "time_limit_minutes": 8
+          "time_limit_minutes": 8,
+          "turn_limit": 16
         },
         {
           "name": "reflect",
           "prompt": "Reflect on how your choice can have negative impacts for a multiplayer game.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         }
       ]
     }
@@ -207,17 +231,20 @@
         {
           "name": "understand",
           "prompt": "Define remote work and in-office work, including key characteristics of each.",
-          "time_limit_minutes": 7
+          "time_limit_minutes": 7,
+          "turn_limit": 14
         },
         {
           "name": "pros and cons",
           "prompt": "List out the pros and cons of each work arrangement for a tech startup.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Conclude which work arrangement is more advantageous for a tech startup.",
-          "time_limit_minutes": 8
+          "time_limit_minutes": 8,
+          "turn_limit": 16
         }
       ]
     }
@@ -233,17 +260,20 @@
         {
           "name": "understand",
           "prompt": "Review the provided code snippet and its intended functionality.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         },
         {
           "name": "identify",
           "prompt": "Highlight sections of the code that exhibit characteristics typical of AI-generated code.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "explain",
           "prompt": "Provide reasoning for why those sections are likely AI-generated.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         }
       ]
     }
@@ -259,17 +289,20 @@
         {
           "name": "understand",
           "prompt": "Review the app and identify existing accessibility features.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         },
         {
           "name": "evaluate",
           "prompt": "Assess the effectiveness of these features for users with disabilities.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "recommend",
           "prompt": "Suggest specific improvements to enhance accessibility.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         }
       ]
     }
@@ -285,17 +318,20 @@
         {
           "name": "understand",
           "prompt": "Define a data breach and its potential impacts.",
-          "time_limit_minutes": 7
+          "time_limit_minutes": 7,
+          "turn_limit": 14
         },
         {
           "name": "analyze",
           "prompt": "Examine the details of Under Armour's data breach.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "evaluate",
           "prompt": "Assess the company's response and effectiveness of their mitigation efforts.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         }
       ]
     }
@@ -311,17 +347,20 @@
         {
           "name": "understand",
           "prompt": "Review the e-commerce app and identify what is specifically needed for the checkout process.",
-          "time_limit_minutes": 5
+          "time_limit_minutes": 5,
+          "turn_limit": 10
         },
         {
           "name": "evaluate",
           "prompt": "Assess the usability and accessibility of the checkout process you have come up with.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Finalize the step-by-step guide for checking out a design in the app.",
-          "time_limit_minutes": 8
+          "time_limit_minutes": 8,
+          "turn_limit": 16
         }
       ]
     }
@@ -337,17 +376,20 @@
         {
           "name": "understand",
           "prompt": "Outline the key features of Python, Java, and C++.",
-          "time_limit_minutes": 7
+          "time_limit_minutes": 7,
+          "turn_limit": 14
         },
         {
           "name": "pros and cons",
           "prompt": "List out the pros and cons of each language for web development, mobile apps, and system programming.",
-          "time_limit_minutes": 10
+          "time_limit_minutes": 10,
+          "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Conclude which language is most suitable for each application type.",
-          "time_limit_minutes": 8
+          "time_limit_minutes": 8,
+          "turn_limit": 16
         }
       ]
     }
