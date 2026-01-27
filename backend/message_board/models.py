@@ -37,7 +37,7 @@ class Activity(models.Model):
     
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES)
+    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES, default='discussion')
     phases = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -62,5 +62,5 @@ class Intervention(models.Model):
     
     def __str__(self):
         return f'{self.agent.name} in {self.room.code}: {self.rule_name}'
-    
+
 

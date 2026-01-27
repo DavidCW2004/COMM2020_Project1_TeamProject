@@ -5,13 +5,17 @@ from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets
 
-from .models import Post, Room, Intervention
-from .serializers import PostSerializer
+from .models import Post, Room, Intervention, Activity
+from .serializers import PostSerializer, ActivitySerializer
 from .agent_rules import check_all_rules, check_inactivity_rule
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
+
+class ActivityViewSet(viewsets.ModelViewSet):
+    queryset = Activity.objects.all()
+    serializer_class = ActivitySerializer
 
 
 @csrf_exempt
