@@ -27,8 +27,16 @@ class Post(models.Model):
         return f'{self.room.code} - {self.author.username}: {self.content[:20]}'
     
 class Activity(models.Model):
+    ACTIVITY_TYPES = [
+        ('problem-solving', 'Problem-Solving'),
+        ('discussion', 'Discussion'),
+        ('design critique', 'Design Critique'),
+    ]
+    
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
+    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES)
+    phases = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):

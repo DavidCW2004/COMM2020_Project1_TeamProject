@@ -1,6 +1,8 @@
-{
-  "activities": [
-    {
+[
+  {
+    "model": "message_board.activity",
+    "pk": 1,
+    "fields": {
       "name": "Algorithm Design Challenge",
       "description": "Collaboratively design an efficient sorting strategy.",
       "activity_type": "problem-solving",
@@ -27,279 +29,327 @@
         }
       ]
     }
-    ,{
-        "name": "Design Pattern Debate",
-        "description": "Compare three different software development methodologies.",
-        "activity_type": "discussion",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 2,
+    "fields": {
+      "name": "Design Pattern Debate",
+      "description": "Compare three different software development methodologies.",
+      "activity_type": "discussion",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Outline the key principles of Agile, Waterfall, and Scrum.",
-            "time_limit_minutes": 7
+          "name": "understand",
+          "prompt": "Outline the key principles of Agile, Waterfall, and Scrum.",
+          "time_limit_minutes": 7
         },
         {
-            "name": "propose",
-            "prompt": "Advocate for one methodology based on a project with well defined requirements and tight deadlines.",
-            "time_limit_minutes": 10
+          "name": "propose",
+          "prompt": "Advocate for one methodology based on a project with well defined requirements and tight deadlines.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "critique",
-            "prompt": "Evaluate the strengths and weaknesses of each approach.",
-            "time_limit_minutes": 10
+          "name": "critique",
+          "prompt": "Evaluate the strengths and weaknesses of each approach.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "decide",
-            "prompt": "Choose the most suitable methodology for a sample project.",
-            "time_limit_minutes": 8
+          "name": "decide",
+          "prompt": "Choose the most suitable methodology for a sample project.",
+          "time_limit_minutes": 8
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Code safty review",
-        "description": "Review a piece of code for potential safety and security issues.",
-        "activity_type": "design critique",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 3,
+    "fields": {
+      "name": "Code safty review",
+      "description": "Review a piece of code for potential safety and security issues.",
+      "activity_type": "design critique",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Identify the main functionalities of the code snippet provided.",
-            "time_limit_minutes": 5
+          "name": "understand",
+          "prompt": "Identify the main functionalities of the code snippet provided.",
+          "time_limit_minutes": 5
         },
         {
-            "name": "propose",
-            "prompt": "Highlight potential safety and security vulnerabilities in the code.",
-            "time_limit_minutes": 10
+          "name": "propose",
+          "prompt": "Highlight potential safety and security vulnerabilities in the code.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "decide",
-            "prompt": "Recommend specific improvements to enhance code safety and security.",
-            "time_limit_minutes": 7
+          "name": "decide",
+          "prompt": "Recommend specific improvements to enhance code safety and security.",
+          "time_limit_minutes": 7
         }
-        ]
+      ]
     }
-    ,{
-        "name":"Network Topology Optimization",
-        "Description": "Design a resilient network for a small office with high uptime requirements.",
-        "activity_type": "problem-solving",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 4,
+    "fields": {
+      "name": "Network Topology Optimization",
+      "description": "Design a resilient network for a small office with high uptime requirements.",
+      "activity_type": "problem-solving",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "List the hardware required for a basic LAN.",
-            "time_limit_minutes": 6
+          "name": "understand",
+          "prompt": "List the hardware required for a basic LAN.",
+          "time_limit_minutes": 6
         },
         {
-            "name": "propose",
-            "prompt": "Suggest a topology (Star, Mesh, etc.) to handle a single point of failure.",
-            "time_limit_minutes": 12
+          "name": "propose",
+          "prompt": "Suggest a topology (Star, Mesh, etc.) to handle a single point of failure.",
+          "time_limit_minutes": 12
         },
         {
-            "name": "decide",
-            "prompt": "Finalize the hardware list and topology map.",
-            "time_limit_minutes": 7
+          "name": "decide",
+          "prompt": "Finalize the hardware list and topology map.",
+          "time_limit_minutes": 7
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Database normalization",
-        "Description": "Turn the given database into 3rd normal form",
-        "activity_type": "problem-solving",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 5,
+    "fields": {
+      "name": "Database normalization",
+      "description": "Turn the given database into 3rd normal form",
+      "activity_type": "problem-solving",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Identify the current normal form of the database and how each object relates to each other.",
-            "time_limit_minutes": 5
+          "name": "understand",
+          "prompt": "Identify the current normal form of the database and how each object relates to each other.",
+          "time_limit_minutes": 5
         },
         {
-            "name": "propose",
-            "prompt": "Suggest changes to eliminate redundancy and ensure data integrity.",
-            "time_limit_minutes": 10
+          "name": "propose",
+          "prompt": "Suggest changes to eliminate redundancy and ensure data integrity.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "decide",
-            "prompt": "Finalize the normalized database schema.",
-            "time_limit_minutes": 8
+          "name": "decide",
+          "prompt": "Finalize the normalized database schema.",
+          "time_limit_minutes": 8
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Syntacx Error Hunt",
-        "description": "Identify and correct syntax errors in a provided code snippet.",
-        "activity_type": "design critique",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 6,
+    "fields": {
+      "name": "Syntacx Error Hunt",
+      "description": "Identify and correct syntax errors in a provided code snippet.",
+      "activity_type": "design critique",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Review the given code and assess its intended functionality.",
-            "time_limit_minutes": 5
+          "name": "understand",
+          "prompt": "Review the given code and assess its intended functionality.",
+          "time_limit_minutes": 5
         },
         {
-            "name": "spot",
-            "prompt": "List all syntax errors found in the code snippet.",
-            "time_limit_minutes": 10
+          "name": "spot",
+          "prompt": "List all syntax errors found in the code snippet.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "fix",
-            "prompt": "Provide corrected code with explanations for each change made.",
-            "time_limit_minutes": 10
+          "name": "fix",
+          "prompt": "Provide corrected code with explanations for each change made.",
+          "time_limit_minutes": 10
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Open source v Proprietary",
-        "description": "Debate the merits of open source software versus proprietary software for a online multiplayer game.",
-        "activity_type": "discussion",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 7,
+    "fields": {
+      "name": "Open source v Proprietary",
+      "description": "Debate the merits of open source software versus proprietary software for a online multiplayer game.",
+      "activity_type": "discussion",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Define open source and proprietary software, including key characteristics of each.",
-            "time_limit_minutes": 7
+          "name": "understand",
+          "prompt": "Define open source and proprietary software, including key characteristics of each.",
+          "time_limit_minutes": 7
         },
         {
-            "name": "pros and cons",
-            "prompt": "List out the pros and cons of each model for this specific scenario.",
-            "time_limit_minutes": 10
+          "name": "pros and cons",
+          "prompt": "List out the pros and cons of each model for this specific scenario.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "decide",
-            "prompt": "Conclude which model is more advantageous.",
-            "time_limit_minutes": 8
+          "name": "decide",
+          "prompt": "Conclude which model is more advantageous.",
+          "time_limit_minutes": 8
+        },
+        {
+          "name": "reflect",
+          "prompt": "Reflect on how your choice can have negative impacts for a multiplayer game.",
+          "time_limit_minutes": 5
         }
-        ,{
-            "name": "reflect",
-            "prompt": "Reflect on how your choice can have negative impacts for a multiplayer game.",
-            "time_limit_minutes": 5
-        }
-        ]
+      ]
     }
-    ,{
-        "name": "Remote vs In-Office",
-        "description": "Discuss the benefits and challenges of remote work versus in-office work for a tech startup.",
-        "activity_type": "discussion",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 8,
+    "fields": {
+      "name": "Remote vs In-Office",
+      "description": "Discuss the benefits and challenges of remote work versus in-office work for a tech startup.",
+      "activity_type": "discussion",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Define remote work and in-office work, including key characteristics of each.",
-            "time_limit_minutes": 7
+          "name": "understand",
+          "prompt": "Define remote work and in-office work, including key characteristics of each.",
+          "time_limit_minutes": 7
         },
         {
-            "name": "pros and cons",
-            "prompt": "List out the pros and cons of each work arrangement for a tech startup.",
-            "time_limit_minutes": 10
+          "name": "pros and cons",
+          "prompt": "List out the pros and cons of each work arrangement for a tech startup.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "decide",
-            "prompt": "Conclude which work arrangement is more advantageous for a tech startup.",
-            "time_limit_minutes": 8
+          "name": "decide",
+          "prompt": "Conclude which work arrangement is more advantageous for a tech startup.",
+          "time_limit_minutes": 8
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Spotting AI in code",
-        "description": "Identify where in the given code snippet code is likely generated by AI tools.",
-        "activity_type": "design critique",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 9,
+    "fields": {
+      "name": "Spotting AI in code",
+      "description": "Identify where in the given code snippet code is likely generated by AI tools.",
+      "activity_type": "design critique",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Review the provided code snippet and its intended functionality.",
-            "time_limit_minutes": 5
+          "name": "understand",
+          "prompt": "Review the provided code snippet and its intended functionality.",
+          "time_limit_minutes": 5
         },
         {
-            "name": "identify",
-            "prompt": "Highlight sections of the code that exhibit characteristics typical of AI-generated code.",
-            "time_limit_minutes": 10
+          "name": "identify",
+          "prompt": "Highlight sections of the code that exhibit characteristics typical of AI-generated code.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "explain",
-            "prompt": "Provide reasoning for why those sections are likely AI-generated.",
-            "time_limit_minutes": 10
+          "name": "explain",
+          "prompt": "Provide reasoning for why those sections are likely AI-generated.",
+          "time_limit_minutes": 10
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Accesabilty in consumer apps",
-        "description": "Evaluate a popular consumer app for accessibility features and suggest improvements.",
-        "activity_type": "design critique",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 10,
+    "fields": {
+      "name": "Accesabilty in consumer apps",
+      "description": "Evaluate a popular consumer app for accessibility features and suggest improvements.",
+      "activity_type": "design critique",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Review the app and identify existing accessibility features.",
-            "time_limit_minutes": 5
+          "name": "understand",
+          "prompt": "Review the app and identify existing accessibility features.",
+          "time_limit_minutes": 5
         },
         {
-            "name": "evaluate",
-            "prompt": "Assess the effectiveness of these features for users with disabilities.",
-            "time_limit_minutes": 10
+          "name": "evaluate",
+          "prompt": "Assess the effectiveness of these features for users with disabilities.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "recommend",
-            "prompt": "Suggest specific improvements to enhance accessibility.",
-            "time_limit_minutes": 10
+          "name": "recommend",
+          "prompt": "Suggest specific improvements to enhance accessibility.",
+          "time_limit_minutes": 10
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Data breach review",
-        "description": "Analyze Under Armour's recent data breach and its implications.",
-        "activity_type": "discussion",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 11,
+    "fields": {
+      "name": "Data breach review",
+      "description": "Analyze Under Armour's recent data breach and its implications.",
+      "activity_type": "discussion",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Define a data breach and its potential impacts.",
-            "time_limit_minutes": 7
+          "name": "understand",
+          "prompt": "Define a data breach and its potential impacts.",
+          "time_limit_minutes": 7
         },
         {
-            "name": "analyze",
-            "prompt": "Examine the details of Under Armour's data breach.",
-            "time_limit_minutes": 10
+          "name": "analyze",
+          "prompt": "Examine the details of Under Armour's data breach.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "evaluate",
-            "prompt": "Assess the company's response and effectiveness of their mitigation efforts.",
-            "time_limit_minutes": 10
+          "name": "evaluate",
+          "prompt": "Assess the company's response and effectiveness of their mitigation efforts.",
+          "time_limit_minutes": 10
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Check out design",
-        "description": "Create a step-by-step guide for checking out a design in an e-commerce app.",
-        "activity_type": "problem-solving",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 12,
+    "fields": {
+      "name": "Check out design",
+      "description": "Create a step-by-step guide for checking out a design in an e-commerce app.",
+      "activity_type": "problem-solving",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Review the e-commerce app and identify what is specifically needed for the checkout process.",
-            "time_limit_minutes": 5
+          "name": "understand",
+          "prompt": "Review the e-commerce app and identify what is specifically needed for the checkout process.",
+          "time_limit_minutes": 5
         },
         {
-            "name": "evaluate",
-            "prompt": "Assess the usability and accessibility of the checkout process you have come up with.",
-            "time_limit_minutes": 10
+          "name": "evaluate",
+          "prompt": "Assess the usability and accessibility of the checkout process you have come up with.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "decide",
-            "prompt": "Finalize the step-by-step guide for checking out a design in the app.",
-            "time_limit_minutes": 8
+          "name": "decide",
+          "prompt": "Finalize the step-by-step guide for checking out a design in the app.",
+          "time_limit_minutes": 8
         }
-        ]
+      ]
     }
-    ,{
-        "name": "Code Language Review",
-        "description": "Discuss the advantages and disadvantages of python, java and c++ for different applications.",
-        "activity_type": "discussion",
-        "phases": [
+  },
+  {
+    "model": "message_board.activity",
+    "pk": 13,
+    "fields": {
+      "name": "Code Language Review",
+      "description": "Discuss the advantages and disadvantages of python, java and c++ for different applications.",
+      "activity_type": "discussion",
+      "phases": [
         {
-            "name": "understand",
-            "prompt": "Outline the key features of Python, Java, and C++.",
-            "time_limit_minutes": 7
+          "name": "understand",
+          "prompt": "Outline the key features of Python, Java, and C++.",
+          "time_limit_minutes": 7
         },
         {
-            "name": "pros and cons",
-            "prompt": "List out the pros and cons of each language for web development, mobile apps, and system programming.",
-            "time_limit_minutes": 10
+          "name": "pros and cons",
+          "prompt": "List out the pros and cons of each language for web development, mobile apps, and system programming.",
+          "time_limit_minutes": 10
         },
         {
-            "name": "decide",
-            "prompt": "Conclude which language is most suitable for each application type.",
-            "time_limit_minutes": 8
+          "name": "decide",
+          "prompt": "Conclude which language is most suitable for each application type.",
+          "time_limit_minutes": 8
         }
-        ]
+      ]
     }
-  ]
-}
+  }
+]
