@@ -17,6 +17,10 @@ class Room(models.Model):
 
     members = models.ManyToManyField(User, related_name="rooms", blank=True)  # ✅ add this
 
+    selected_activity = models.ForeignKey("Activity", null=True, blank=True, on_delete=models.SET_NULL)
+    activity_started_at = models.DateTimeField(null=True, blank=True)
+    activity_is_running = models.BooleanField(default=False)
+
     def __str__(self):
         return self.code
 
@@ -25,6 +29,8 @@ class Post(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    phase_index = models.IntegerField(null=True, blank=True)
+
 
     def __str__(self):
         return f'{self.room.code} - {self.author.username}: {self.content[:20]}'
@@ -60,6 +66,8 @@ class Intervention(models.Model):
     message = models.TextField()
     explanation = models.TextField(blank=True)  # "Why am I seeing this?"
     created_at = models.DateTimeField(auto_now_add=True)
+    phase_index = models.IntegerField(null=True, blank=True)
+
     
     def __str__(self):
         return f'{self.agent.name} in {self.room.code}: {self.rule_name}'
