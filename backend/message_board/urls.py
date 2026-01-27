@@ -4,7 +4,7 @@ from . import views
 from .views import ActivityViewSet
 
 router = DefaultRouter()
-router.register(r'activities', ActivityViewSet)
+router.register(r"activities", ActivityViewSet, basename="activities")
 
 urlpatterns = [
     path("rooms/", views.rooms, name="rooms"),

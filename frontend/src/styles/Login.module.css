@@ -289,11 +289,11 @@
 }
 
 .roomsListParent {
-width: 100%;
-height: 546px;
-position: relative;
-border-radius: 6px;
-background-color: #f2efef;
+    width: 100%;
+    height: 546px;
+    position: relative;
+    border-radius: 6px;
+    background-color: #f2efef;
 }
 
 .emptyState {
@@ -313,12 +313,16 @@ background-color: #f2efef;
     color: #666;
 }
 
-.membersListParent  {
-width: 100%;
-height: 546px;
-position: relative;
-border-radius: 6px;
-background-color: #f2efef;
+.membersListParent {
+    width: 100%;
+    height: 546px;
+    position: relative;
+    border-radius: 6px;
+    background-color: #f2efef;
+
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
 }
 
 .membersHeading {
@@ -341,7 +345,7 @@ background-color: #f2efef;
     text-align: center;
     background-color: #f2efef;
     border-radius: 6px;
-    padding: 30px ;
+    padding: 30px;
 }
 
 .smallNote {
@@ -364,3 +368,28 @@ background-color: #f2efef;
     color: #b00020;
     text-align: center;
 }
+
+.scrollArea {
+    margin-top: 12px;
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+
+}
+
+.scrollArea::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+    background: #cfcfcf;
+    border-radius: 8px;
+}
+
+.activityListScroll {
+    flex: 1;              
+    overflow-y: auto;     
+    padding: 12px;
+    box-sizing: border-box;
+}
+

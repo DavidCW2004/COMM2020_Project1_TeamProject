@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import styles from "../styles/Login.module.css";
 
 import { fetchRoom, fetchRoomMembers } from "../api/client";
@@ -26,6 +26,7 @@ export default function RoomDashboardPage() {
 
     // later: activity state
     const [hasActivity] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (!code) return;
@@ -96,7 +97,7 @@ export default function RoomDashboardPage() {
                     {!hasActivity && (
                         <>
                             <div className={styles.smallNote}>No activity running</div>
-                            <button className={styles.primaryButton} type="button">
+                            <button className={styles.primaryButton} type="button" onClick={() => navigate(`/room/${code}/activities`)}>
                                 Select Activity
                             </button>
                         </>
