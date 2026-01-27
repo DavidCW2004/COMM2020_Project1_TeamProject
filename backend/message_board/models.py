@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class Room(models.Model):
@@ -39,7 +40,7 @@ class Activity(models.Model):
     description = models.TextField(blank=True)
     activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES, default='discussion')
     phases = models.JSONField(default=list)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now, blank=True, null=True)
     
     def __str__(self):
         return self.name
