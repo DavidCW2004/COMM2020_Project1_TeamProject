@@ -11,4 +11,7 @@ urlpatterns = [
     path("messages/", views.messages, name="messages"),
     path("rooms/<str:code>/", views.room_detail, name="room_detail"),
     path("rooms/<str:code>/members/", views.room_members, name="room_members"),
+    path("rooms/<str:code>/select-activity/", views.select_activity, name="select_activity"),
+    path("rooms/<str:code>/start-activity/", views.start_activity, name="start_activity"),
+    
 ] + router.urls
