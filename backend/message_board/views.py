@@ -1,14 +1,15 @@
 import json
-
+import uuid
 from django.http import JsonResponse
 from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from .models import Post, Room, Intervention, Activity
+from .models import Post, Room, Intervention, Activity, RoomMember
 from .serializers import PostSerializer, ActivitySerializer
-from .agent_rules import check_all_rules, check_inactivity_rule
+from .agent_rules import check_all_rules, check_individual_inactivity_rule, message_lacks_evidence
 from django.utils import timezone
+
 
 
 
@@ -50,7 +51,8 @@ def rooms(request):
             code = get_random_string(6).upper()
 
         room = Room.objects.create(code=code, name=name)
-        room.members.add(request.user)  # ✅ creator joins automatically
+        room.members.add(request.user)  
+        RoomMember.objects.get_or_create(room=room, user=request.user)
 
         return JsonResponse({
             "code": room.code,
@@ -69,7 +71,8 @@ def rooms(request):
             return JsonResponse({"detail": "Room not found"}, status=404)
 
         already_member = room.members.filter(id=request.user.id).exists()
-        room.members.add(request.user)  # ✅ joiner becomes a member
+        room.members.add(request.user)
+        RoomMember.objects.get_or_create(room=room, user=request.user)  
 
         return JsonResponse({
             "code": room.code,
@@ -108,10 +111,10 @@ def messages(request):
         phase_index = None
 
     if request.method == "GET":
-        check_inactivity_rule(room)
+        check_individual_inactivity_rule(room, phase_index=phase_index)
 
-        posts_qs = Post.objects.filter(room=room, phase_index=phase_index).order_by("created_at")
-        interventions_qs = Intervention.objects.filter(room=room, phase_index=phase_index).order_by("created_at")
+        posts_qs = Post.objects.filter(room=room, phase_index=phase_index, activity_run_id=room.activity_run_id).order_by("created_at")
+        interventions_qs = Intervention.objects.filter(room=room, phase_index=phase_index, activity_run_id=room.activity_run_id).order_by("created_at")
 
         messages_data = []
 
@@ -123,6 +126,8 @@ def messages(request):
                 "author": post.author.first_name or post.author.username,
                 "created_at": post.created_at.isoformat(),
                 "phase_index": post.phase_index,
+                "lacks_evidence": post.lacks_evidence,
+
             })
 
         for intervention in interventions_qs:
@@ -148,6 +153,7 @@ def messages(request):
                 "finished": state.get("finished", False),
                 "activity_id": state.get("activity_id"),
                 "activity_name": state.get("activity_name"),
+                "activity_run_id": str(room.activity_run_id) if room.activity_run_id else None,
                 "phase_name": state.get("phase_name"),
                 "phase_prompt": state.get("phase_prompt"),
                 "phase_ends_at": state.get("phase_ends_at"),
@@ -171,12 +177,16 @@ def messages(request):
     if not content:
         return JsonResponse({"detail": "content is required"}, status=400)
 
-    
+
+
     post = Post.objects.create(
         room=room,
         author=request.user,
         content=content,
         phase_index=phase_index,
+        activity_run_id=room.activity_run_id,
+        lacks_evidence=message_lacks_evidence(content),
+
     )
 
     
@@ -264,6 +274,7 @@ def start_activity(request, code):
     # Start (or restart) the activity
     room.activity_is_running = True
     room.activity_started_at = timezone.now()
+    room.activity_run_id = uuid.uuid4()
     room.save(update_fields=["activity_is_running", "activity_started_at"])
 
     return JsonResponse({

@@ -17,6 +17,23 @@ export type Message = {
 	created_at: string;
 };
 
+export type Room = {
+	code: string;
+	name: string;
+	selected_activity: { id: number; name: string } | null;
+	activity: {
+		is_running: boolean;
+		finished: boolean;
+		activity_id: number | null;
+		activity_name: string | null;
+		phase_index?: number | null;
+		phase_name?: string | null;
+		phase_prompt?: string | null;
+		phase_ends_at?: string | null;
+		total_phases?: number | null;
+	};
+};
+
 export async function createTempAccount(displayName: string, role: "learner" | "facilitator") {
 	const response = await fetch(`${API_BASE_URL}/api/temp-login/`, {
 		method: "POST",
@@ -117,7 +134,7 @@ export async function fetchRoom(code: string) {
 		throw new Error(error.detail || "Failed to fetch room");
 	}
 
-	return res.json() as Promise<{ code: string; name: string }>;
+	return res.json() as Promise<Room>;
 }
 
 export async function fetchRoomMembers(code: string) {
@@ -132,4 +149,20 @@ export async function fetchRoomMembers(code: string) {
 	}
 
 	return res.json() as Promise<Array<{ id: number; name: string }>>;
+}
+
+export async function startRoomActivity(code: string): Promise<void> {
+	const res = await fetch(
+		`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/start-activity/`,
+		{
+			method: "POST",
+			credentials: "include",
+			headers: { "Content-Type": "application/json" },
+		}
+	);
+
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(`Failed to start activity (${res.status}): ${text}`);
+	}
 }

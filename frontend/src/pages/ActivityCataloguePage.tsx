@@ -63,13 +63,23 @@ export default function ActivityCataloguePage() {
         setSelectedActivity(null);
     }
 
-    function confirmSelectActivity() {
+    async function confirmSelectActivity() {
         if (!selectedActivity || !code) return;
 
-        localStorage.setItem(`room:${code}:selectedActivityId`, String(selectedActivity.id));
+        const res = await fetch(`/api/rooms/${code}/select-activity/`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ activity_id: selectedActivity.id }),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to select activity (${res.status}): ${text}`);
+        }
 
         closeActivityModal();
-        navigate(`/room/${code}`);
+        navigate(`/room/${code}`); 
     }
 
     useEffect(() => {

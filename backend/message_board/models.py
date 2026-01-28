@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.conf import settings
 
 
 class Room(models.Model):
@@ -15,14 +16,24 @@ class Room(models.Model):
         ("decide", "Decide"),
     ])
 
-    members = models.ManyToManyField(User, related_name="rooms", blank=True)  # ✅ add this
+    members = models.ManyToManyField(User, related_name="rooms", blank=True)
 
     selected_activity = models.ForeignKey("Activity", null=True, blank=True, on_delete=models.SET_NULL)
     activity_started_at = models.DateTimeField(null=True, blank=True)
     activity_is_running = models.BooleanField(default=False)
+    activity_run_id = models.UUIDField(null=True, blank=True, editable=False)
+
 
     def __str__(self):
         return self.code
+    
+class RoomMember(models.Model):
+    room = models.ForeignKey("Room", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("room", "user")
 
 class Post(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="posts")
@@ -30,6 +41,8 @@ class Post(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     phase_index = models.IntegerField(null=True, blank=True)
+    lacks_evidence = models.BooleanField(default=False)
+    activity_run_id = models.UUIDField(null=True, blank=True, db_index=True)
 
 
     def __str__(self):
@@ -64,12 +77,25 @@ class Intervention(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='interventions')
     rule_name = models.CharField(max_length=100)
     message = models.TextField()
-    explanation = models.TextField(blank=True)  # "Why am I seeing this?"
+    explanation = models.TextField(blank=True)  
     created_at = models.DateTimeField(auto_now_add=True)
     phase_index = models.IntegerField(null=True, blank=True)
+    activity_run_id = models.UUIDField(null=True, blank=True, db_index=True)
 
     
     def __str__(self):
         return f'{self.agent.name} in {self.room.code}: {self.rule_name}'
 
 
+
+class EvidenceNudgeState(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    phase_index = models.IntegerField(null=True, blank=True)
+    flagged_count = models.IntegerField(default=0)
+    last_nudged_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("room", "user", "phase_index")
+    def __str__(self):
+        return f'EvidenceNudgeState: {self.room.code} - {self.user.username} - Phase {self.phase_index}'

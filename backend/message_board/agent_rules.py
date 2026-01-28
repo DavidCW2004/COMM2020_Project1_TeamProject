@@ -1,224 +1,267 @@
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Count
-from .models import Room, Post, Agent, Intervention
+from .models import Post, Agent, Intervention, RoomMember, EvidenceNudgeState
+import re
+
+INDIVIDUAL_INACTIVITY_THRESHOLD = timedelta(minutes=2)
+INDIVIDUAL_INACTIVITY_COOLDOWN = timedelta(minutes=2)
+JOIN_GRACE_PERIOD = timedelta(minutes=2)
 
 
-def check_inactivity_rule(room):
-    """
-    Rule: No messages in the last 2 minutes
-    Agent: Facilitator
-    Trigger: Prompt participation
-    """
-    two_minutes_ago = timezone.now() - timedelta(minutes=2)
-    # If the room has no posts yet, don't prompt immediately
-    last_post = Post.objects.filter(room=room).order_by('-created_at').first()
-    if not last_post:
-        return False
+EQUITY_COOLDOWN = timedelta(minutes=5)
 
-    # Only prompt if the last post is older than 2 minutes
-    if last_post.created_at <= two_minutes_ago:
-        agent = Agent.objects.get(name="Facilitator Agent")
-        explanation = "No one has posted in the last 2 minutes. The Facilitator is encouraging participation."
-        message = "It's been quiet—let's hear from someone who hasn't shared yet!"
-
-        # Check if we already triggered this rule recently to avoid spam
-        recent_intervention = Intervention.objects.filter(
-            agent=agent,
-            room=room,
-            rule_name="inactivity_2min",
-            created_at__gte=two_minutes_ago
-        ).exists()
-
-        if not recent_intervention:
-            Intervention.objects.create(
-                agent=agent,
-                room=room,
-                rule_name="inactivity_2min",
-                message=message,
-                explanation=explanation
-            )
-            return True
-    return False
+EVIDENCE_KEYWORDS = [
+    "because", "research", "study", "data", "evidence", "shows", "according to",
+    "http://", "https://", "for example", "for instance", "e.g."
+]
 
 
-def check_individual_inactivity_rule(room):
-    """
-    Rule: Specific users haven't participated in the last 3 minutes
-    Agent: Facilitator
-    Trigger: Personalized prompt to inactive users
-    """
-    three_minutes_ago = timezone.now() - timedelta(minutes=3)
-    
-    # Get all room members
-    room_members = room.members.all()
-    
-    # Get users who posted in the last 3 minutes
-    active_users = Post.objects.filter(
+CITATION_PATTERNS = [
+    r"\[\d+\]",
+    r"\(\s*\d{4}\s*\)",  
+    r"\bdoi:\s*\S+",     
+]
+
+def _agent(name: str, description: str) -> Agent:
+    a, _ = Agent.objects.get_or_create(
+        name=name,
+        defaults={"description": description, "is_active": True},
+    )
+    return a
+
+
+def _recent(room, agent: Agent, rule_name: str, since, phase_index):
+    qs = Intervention.objects.filter(
         room=room,
-        created_at__gte=three_minutes_ago
-    ).values_list('author', flat=True).distinct()
-    
-    # Find inactive users
-    inactive_users = room_members.exclude(id__in=active_users)
-    
-    if not inactive_users.exists():
+        agent=agent,
+        rule_name=rule_name,
+        created_at__gte=since,
+    )
+
+    if phase_index is None:
+        qs = qs.filter(phase_index__isnull=True)
+    else:
+        qs = qs.filter(phase_index=phase_index)
+    return qs.exists()
+
+
+def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, phase_index):
+    if not agent.is_active:
+        return
+    Intervention.objects.create(
+        agent=agent,
+        room=room,
+        rule_name=rule_name,
+        message=message,
+        explanation=explanation or "",
+        phase_index=phase_index,
+        activity_run_id=room.activity_run_id, 
+    )
+
+#Rules
+
+def check_individual_inactivity_rule(room, phase_index=None):
+    now = timezone.now()
+
+    members_qs = room.members.all()
+    if not members_qs.exists():
         return False
-    
-    # Create interventions for each inactive user
-    try:
-        agent = Agent.objects.get(name="Facilitator Agent")
-    except Agent.DoesNotExist:
-        return False
-    
+
+    threshold_time = now - INDIVIDUAL_INACTIVITY_THRESHOLD
+    active_user_ids = set(
+        Post.objects.filter(
+            room=room,
+            phase_index=phase_index,
+            created_at__gte=threshold_time,
+        ).values_list("author_id", flat=True).distinct()
+    )
+
+    agent, _ = Agent.objects.get_or_create(
+        name="Facilitator Agent",
+        defaults={"description": "Encourages quieter members to participate.", "is_active": True},
+    )
+
+    cooldown_since = now - INDIVIDUAL_INACTIVITY_COOLDOWN
     triggered = False
-    
-    for user in inactive_users:
-        # Check if we already triggered this rule recently for this user
-        recent_intervention = Intervention.objects.filter(
+
+    for user in members_qs:
+        # If they posted recently, they are not inactive
+        if user.id in active_user_ids:
+            continue
+
+        # Ensure joined_at exists (prevents “grace logic” from skipping forever)
+        membership, _ = RoomMember.objects.get_or_create(room=room, user=user)
+
+        # Grace period after joining
+        if now - membership.joined_at < JOIN_GRACE_PERIOD:
+            continue
+
+        rule_name = f"individual_inactivity:user={user.id}"
+
+        recent = Intervention.objects.filter(
             agent=agent,
             room=room,
-            rule_name="individual_inactivity",
-            created_at__gte=three_minutes_ago
-        ).exists()
-        
-        if not recent_intervention:
-            explanation = f"User {user.username} hasn't posted in the last 3 minutes."
-            message = f"Hi {user.first_name or user.username}, we'd love to hear your thoughts!"
-            
-            Intervention.objects.create(
-                agent=agent,
-                room=room,
-                rule_name="individual_inactivity",
-                message=message,
-                explanation=explanation
-            )
-            triggered = True
-    
-    return triggered
+            rule_name=rule_name,
+            created_at__gte=cooldown_since,
+        )
+        if phase_index is None:
+            recent = recent.filter(phase_index__isnull=True)
+        else:
+            recent = recent.filter(phase_index=phase_index)
 
+        if recent.exists():
+            continue
 
-def check_equity_rule(room):
-    """
-    Rule: Unequal participation between users in current phase
-    Agent: Equity
-    Trigger: Encourage participation from underrepresented voices
-    """
-    posts = Post.objects.filter(room=room)
-    
-    if posts.count() < 3:
-        return False
-    
-    # Count messages per user in this room
-    user_message_counts = posts.values('author__username', 'author__first_name', 'author__id').annotate(
-        count=Count('id')
-    ).order_by('-count')
-    
-    # Calculate average messages per user
-    total_messages = posts.count()
-    total_users = room.members.count()
-    
-    if total_users < 2:
-        return False
-    
-    expected_average = total_messages / total_users
-    
-    # Find users with significantly fewer messages (less than 50% of average)
-    participation_threshold = expected_average * 0.5
-    
-    try:
-        agent = Agent.objects.get(name="Equity Agent")
-    except Agent.DoesNotExist:
-        return False
-    
-    triggered = False
-    posted_users_ids = set(user_message_counts.values_list('author__id', flat=True))
-    
-    # Check all room members
-    for member in room.members.all():
-        member_post_count = posts.filter(author=member).count()
-        
-        # Trigger if user hasn't posted or has posted significantly less
-        if member_post_count < participation_threshold:
-            # Check if we recently triggered this for this user to avoid spam
-            recent_intervention = Intervention.objects.filter(
-                agent=agent,
-                room=room,
-                rule_name="unequal_participation",
-                created_at__gte=timezone.now() - timedelta(minutes=5)
-            ).filter(message__contains=member.username).exists()
-            
-            if not recent_intervention:
-                # Calculate their percentage of total messages
-                percentage = (member_post_count / total_messages * 100) if total_messages > 0 else 0
-                expected_percentage = (100 / total_users)
-                
-                explanation = f"{member.username} has posted {member_post_count} messages ({percentage:.0f}% of total), below the expected {expected_percentage:.0f}% for equal participation."
-                message = f"{member.first_name or member.username}, we notice you've been quiet. Your perspective is important—please share your thoughts!"
-                
-                Intervention.objects.create(
-                    agent=agent,
-                    room=room,
-                    rule_name="unequal_participation",
-                    message=message,
-                    explanation=explanation
-                )
-                triggered = True
-    
-    return triggered
-
-
-def check_evidence_rule(room, post):
-    """
-    Rule: User posts a claim without evidence keywords
-    Agent: Socratic
-    Trigger: Ask for supporting evidence
-    """
-    evidence_keywords = ['because', 'research', 'study', 'data', 'evidence', 'shows', 'according to']
-    has_evidence = any(keyword in post.content.lower() for keyword in evidence_keywords)
-    
-    # Simple heuristic: if message is >= 20 chars and has no evidence keywords, flag it
-    if len(post.content) >= 20 and not has_evidence:
-        try:
-            agent = Agent.objects.get(name="Socratic Agent")
-        except Agent.DoesNotExist:
-            return False
-            
-        explanation = f"This message appears to make a claim without supporting evidence. The Socratic Agent is asking for clarification."
-        message = f"Interesting point, {post.author.first_name}! Can you share what evidence or reasoning supports that idea?"
-        
         Intervention.objects.create(
             agent=agent,
             room=room,
-            rule_name="missing_evidence",
-            message=message,
-            explanation=explanation
+            rule_name=rule_name,
+            message=f"Hi {user.first_name or user.username} — we’d love your thoughts when you’re ready.",
+            explanation=f"{user.username} hasn’t posted in the last {INDIVIDUAL_INACTIVITY_THRESHOLD.seconds // 60} minutes (this phase).",
+            phase_index=phase_index,
+            activity_run_id=room.activity_run_id,
         )
-        return True
-    return False
+        triggered = True
 
+    return triggered
+
+
+def check_equity_rule(room, phase_index=None) -> bool:
+#    Rule : Encourage balanced participation by nudging underrepresented members to contribute.
+    posts = Post.objects.filter(room=room, phase_index=phase_index)
+    if posts.count() < 3:
+        return False
+
+    total_users = room.members.count()
+    if total_users < 2:
+        return False
+
+    total_messages = posts.count()
+    expected_average = total_messages / total_users
+    threshold = expected_average * 0.5
+
+    agent = _agent("Equity Agent", "Encourages balanced participation and underrepresented voices.")
+
+    cooldown_since = timezone.now() - EQUITY_COOLDOWN
+    triggered = False
+
+    for member in room.members.all():
+        member_count = posts.filter(author=member).count()
+        if member_count >= threshold:
+            continue
+
+        rule_name = f"unequal_participation:user={member.id}"
+        if _recent(room, agent, rule_name, cooldown_since, phase_index):
+            continue
+
+        explanation = (
+            f"{member.username} has {member_count} messages this phase; "
+            f"below the participation threshold ({threshold:.1f})."
+        )
+        message = f"{member.first_name or member.username}, your perspective would be really valuable here — want to jump in?"
+
+        _create(room, agent, rule_name, message, explanation, phase_index)
+        triggered = True
+
+    return triggered
+
+def message_lacks_evidence(text: str) -> bool:
+#Rule : Detect messages that make claims without supporting evidence.
+    t = (text or "").strip().lower()
+    if not t:
+        return False
+
+    # allow questions without marking
+    if "?" in t:
+        return False
+
+    # numbers count as evidence-like
+    if any(ch.isdigit() for ch in t):
+        return False
+
+    if any(k in t for k in EVIDENCE_KEYWORDS):
+        return False
+
+    if any(re.search(p, t, flags=re.IGNORECASE) for p in CITATION_PATTERNS):
+        return False
+
+    return len(t) >= 20
+
+EVIDENCE_NUDGE_EVERY_N_FLAGGED = 3
+EVIDENCE_NUDGE_MIN_INTERVAL = timedelta(seconds=90)
+
+
+def check_evidence_rule(room, post) -> bool:
+# Rule: Nudge users to provide evidence when their messages lack it.
+    if not message_lacks_evidence(post.content):
+        return False
+
+    agent = _agent(
+        "Socratic Agent",
+        "Encourages evidence-based reasoning and clearer support for claims."
+    )
+
+    state, _ = EvidenceNudgeState.objects.get_or_create(
+        room=room,
+        user=post.author,
+        phase_index=post.phase_index,
+        defaults={"flagged_count": 0, "last_nudged_at": None},
+    )
+
+    state.flagged_count += 1
+
+    now = timezone.now()
+    due_by_count = (state.flagged_count % EVIDENCE_NUDGE_EVERY_N_FLAGGED == 0)
+    due_by_time = (state.last_nudged_at is None) or (now - state.last_nudged_at >= EVIDENCE_NUDGE_MIN_INTERVAL)
+
+    if not (due_by_count or due_by_time):
+        state.save(update_fields=["flagged_count"])
+        return False
+
+    # record the nudge time
+    state.last_nudged_at = now
+    state.save(update_fields=["flagged_count", "last_nudged_at"])
+
+    rule_name = f"missing_evidence:user={post.author.id}"
+
+    explanation = (
+        "This message appears to make a claim without supporting evidence "
+        "(source, data, example, or clear reasoning)."
+    )
+    message = (
+        "Quick reminder: please add evidence or reasoning so others can evaluate the claim.\n\n"
+        "Good options:\n"
+        "• a source/link\n"
+        "• a concrete example\n"
+        "• numbers/observations\n"
+        "• a clear ‘because…’ explanation"
+    )
+
+    _create(
+        room=room,
+        agent=agent,
+        rule_name=rule_name,
+        message=message,
+        explanation=explanation,
+        phase_index=post.phase_index,
+    )
+
+    return True
 
 def check_all_rules(room, new_post=None):
-    """
-    Check all agent rules for a given room.
-    Call this after a new message is posted or periodically.
-    """
+# Check all rules and return a list of triggered rule names
     triggered = []
-    
-    # Inactivity rule (checks room state)
-    if check_inactivity_rule(room):
-        triggered.append("inactivity_2min")
-    
-    # Individual inactivity rule (checks per-user participation)
-    if check_individual_inactivity_rule(room):
-        triggered.append("individual_inactivity")
-    
-    # Equity rule (checks participation balance across users)
-    if check_equity_rule(room):
+
+    phase_index = getattr(new_post, "phase_index", None)
+
+    # Equity (optional to run on post)
+    if check_equity_rule(room, phase_index=phase_index):
         triggered.append("unequal_participation")
-    
-    # Evidence rule (checks specific post)
+
+    # Evidence rule (post-specific)
     if new_post and check_evidence_rule(room, new_post):
         triggered.append("missing_evidence")
-    
+
     return triggered
+
