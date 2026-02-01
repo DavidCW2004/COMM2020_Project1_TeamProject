@@ -7,7 +7,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import Post, Room, Intervention, Activity, RoomMember
 from .serializers import PostSerializer, ActivitySerializer
-from .agent_rules import check_all_rules, check_individual_inactivity_rule, message_lacks_evidence
+from .agent_rules import check_all_rules, check_individual_inactivity_rule, check_unanswered_question_rule, message_lacks_evidence
 from django.utils import timezone
 
 
@@ -110,6 +110,7 @@ def messages(request):
 
     if request.method == "GET":
         check_individual_inactivity_rule(room, phase_index=phase_index)
+        check_unanswered_question_rule(room, phase_index=phase_index)
 
         posts_qs = Post.objects.filter(room=room, phase_index=phase_index, activity_run_id=room.activity_run_id).order_by("created_at")
         interventions_qs = Intervention.objects.filter(room=room, phase_index=phase_index, activity_run_id=room.activity_run_id).order_by("created_at")

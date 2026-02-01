@@ -35,7 +35,9 @@ export type Room = {
 };
 
 export async function createTempAccount(displayName: string, role: "learner" | "facilitator") {
-	const response = await fetch(`${API_BASE_URL}/api/temp-login/`, {
+	const url = `${API_BASE_URL}/api/temp-login/`;
+	console.log("Fetching:", url);
+	const response = await fetch(url, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -47,12 +49,16 @@ export async function createTempAccount(displayName: string, role: "learner" | "
 		}),
 	});
 
+	console.log("Response status:", response.status);
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({}));
+		console.error("Response error:", error);
 		throw new Error(error.detail || "Failed to create temporary account");
 	}
 
-	return (await response.json()) as TempLoginResponse;
+	const data = (await response.json()) as TempLoginResponse;
+	console.log("Response data:", data);
+	return data;
 }
 
 export async function fetchMessages(roomCode: string) {

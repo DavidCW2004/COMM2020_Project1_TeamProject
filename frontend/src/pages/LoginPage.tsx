@@ -16,7 +16,9 @@ export default function LoginPage() {
         setIsSubmitting(true);
 
         try {
+            console.log("Creating temp account with:", { displayName: displayName.trim(), role });
             const response = await createTempAccount(displayName.trim(), role);
+            console.log("Temp account created:", response);
             const payload = {
                 id: response.id,
                 username: response.username,
@@ -28,7 +30,9 @@ export default function LoginPage() {
             localStorage.setItem("sst:user", JSON.stringify(payload));
             navigate("/rooms");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to create account");
+            const errorMessage = err instanceof Error ? err.message : "Failed to create account";
+            console.error("Error creating temp account:", errorMessage);
+            setError(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
