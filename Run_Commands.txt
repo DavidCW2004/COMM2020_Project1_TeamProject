@@ -1,0 +1,16 @@
+1. Start the Backend Server:
+ - Open terminal in project root
+ - Navigate to backend directory: cd backend
+ - Run command: python manage.py runserver
+
+2. Start the Frontend Server
+ - Open new terminal
+ - navigate to frontend directory: cd frontend
+ - Run command: npm run dev
+
+3. Access the Application
+ - Once the frontend is running the terminal will provide a local host link
+ - Ctrl + Left Click to open the frontend in your browser
+
+4. Close the servers
+ - Once you have finished with the application Ctrl + C on both terminals to close.
