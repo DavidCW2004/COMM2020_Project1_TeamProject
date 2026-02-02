@@ -5,7 +5,8 @@ from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from .models import Post, Room, Intervention, Activity, RoomMember
+from django.http import HttpResponse
+from .models import Post, Room, Intervention, Activity, RoomMember, SessionSummary
 from .serializers import PostSerializer, ActivitySerializer
 from .agent_rules import check_all_rules, check_individual_inactivity_rule, check_unanswered_question_rule, message_lacks_evidence
 from django.utils import timezone
@@ -274,7 +275,7 @@ def start_activity(request, code):
     room.activity_is_running = True
     room.activity_started_at = timezone.now()
     room.activity_run_id = uuid.uuid4()
-    room.save(update_fields=["activity_is_running", "activity_started_at"])
+    room.save(update_fields=["activity_is_running", "activity_started_at", "activity_run_id"])
 
     return JsonResponse({
         "detail": "Activity started",
@@ -367,4 +368,168 @@ def get_activity_state(room):
         "phase_ends_at": None,
         "total_phases": len(phases),
     }
+
+
+@csrf_exempt
+def session_summary(request, code):
+    """
+    GET /api/rooms/<code>/summary/
+    Returns the session summary for the most recent completed activity.
+
+    Query params:
+    - activity_run_id: (optional) Specific activity run to get summary for
+    - regenerate: (optional) If "true", regenerate the summary
+    """
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    code = (code or "").strip().upper()
+
+    try:
+        room = Room.objects.get(code=code)
+    except Room.DoesNotExist:
+        return JsonResponse({"detail": "Room not found"}, status=404)
+
+    # Check if user is a member
+    if not room.members.filter(id=request.user.id).exists():
+        return JsonResponse({"detail": "Not a member of this room"}, status=403)
+
+    # Get activity_run_id from query params or use current room's
+    activity_run_id = request.GET.get("activity_run_id") or room.activity_run_id
+
+    if not activity_run_id:
+        return JsonResponse({"detail": "No activity run found"}, status=404)
+
+    # Check if activity is finished (only enforce for current run)
+    state = get_activity_state(room)
+    if str(activity_run_id) == str(room.activity_run_id):
+        if not state.get("finished", False):
+            return JsonResponse({"detail": "Activity not yet finished"}, status=400)
+
+    # Check if regenerate requested
+    regenerate = request.GET.get("regenerate", "").lower() == "true"
+
+    # Try to get existing summary
+    summary = None
+    if not regenerate:
+        try:
+            summary = SessionSummary.objects.get(room=room, activity_run_id=activity_run_id)
+        except SessionSummary.DoesNotExist:
+            pass
+
+    # Generate if needed
+    if summary is None or regenerate:
+        from .summary_service import generate_summary
+        summary = generate_summary(room, activity_run_id)
+
+    # Determine user role for view filtering
+    user_role = request.user.last_name  # "learner" or "facilitator"
+    is_facilitator = user_role == "facilitator"
+
+    # Build response with role-based filtering
+    response_data = {
+        "room_code": room.code,
+        "room_name": room.name,
+        "activity_run_id": str(summary.activity_run_id),
+        "activity_name": summary.activity.name if summary.activity else None,
+        "created_at": summary.created_at.isoformat(),
+        "activity_started_at": summary.activity_started_at.isoformat() if summary.activity_started_at else None,
+        "activity_ended_at": summary.activity_ended_at.isoformat() if summary.activity_ended_at else None,
+
+        # Content extraction (visible to all)
+        "decisions": summary.extracted_content.get("decisions", []),
+        "action_items": summary.extracted_content.get("action_items", []),
+        "unanswered_questions": summary.extracted_content.get("unanswered_questions", []),
+        "final_outcome": summary.extracted_content.get("final_outcome"),
+
+        # Participation view (visible to all)
+        "participation": summary.participation_data,
+
+        # Process view (facilitator gets full details including interventions_by_rule)
+        "process": summary.process_data if is_facilitator else {
+            "phases": summary.process_data.get("phases", []),
+            "total_duration_seconds": summary.process_data.get("total_duration_seconds", 0)
+        },
+
+        # Quality checks (facilitator only)
+        "quality": summary.quality_data if is_facilitator else None,
+
+        # Personal contribution (for learners only)
+        "personal_contribution": _get_personal_contribution(
+            summary.participation_data,
+            request.user.id
+        ) if not is_facilitator else None,
+
+        "is_facilitator": is_facilitator,
+    }
+
+    return JsonResponse(response_data)
+
+
+def _get_personal_contribution(participation_data, user_id):
+    """Extract personal contribution stats for a specific user."""
+    members = participation_data.get("members", [])
+    for member in members:
+        if member.get("user_id") == user_id:
+            return {
+                "post_count": member.get("post_count", 0),
+                "contribution_percentage": member.get("contribution_percentage", 0),
+                "lacks_evidence_count": member.get("lacks_evidence_count", 0),
+                "posts_by_phase": member.get("posts_by_phase", {}),
+            }
+    return None
+
+
+@csrf_exempt
+def export_summary_pdf(request, code):
+    """
+    GET /api/rooms/<code>/summary/export/
+    Generates and returns a PDF of the session summary.
+    Facilitator-only endpoint.
+    """
+    if request.method != "GET":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    # Check facilitator role
+    if request.user.last_name != "facilitator":
+        return JsonResponse({"detail": "Facilitator access required"}, status=403)
+
+    code = (code or "").strip().upper()
+
+    try:
+        room = Room.objects.get(code=code)
+    except Room.DoesNotExist:
+        return JsonResponse({"detail": "Room not found"}, status=404)
+
+    # Check if user is a member
+    if not room.members.filter(id=request.user.id).exists():
+        return JsonResponse({"detail": "Not a member of this room"}, status=403)
+
+    activity_run_id = request.GET.get("activity_run_id") or room.activity_run_id
+
+    if not activity_run_id:
+        return JsonResponse({"detail": "No activity run found"}, status=404)
+
+    # Get or generate summary
+    try:
+        summary = SessionSummary.objects.get(room=room, activity_run_id=activity_run_id)
+    except SessionSummary.DoesNotExist:
+        from .summary_service import generate_summary
+        summary = generate_summary(room, activity_run_id)
+
+    # Generate PDF
+    from .pdf_generator import generate_summary_pdf
+    pdf_content = generate_summary_pdf(summary, room)
+
+    response = HttpResponse(pdf_content, content_type='application/pdf')
+    filename = f"session_summary_{room.code}_{summary.created_at.strftime('%Y%m%d')}.pdf"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    return response
 

@@ -172,3 +172,37 @@ export async function startRoomActivity(code: string): Promise<void> {
 		throw new Error(`Failed to start activity (${res.status}): ${text}`);
 	}
 }
+
+export async function fetchSessionSummary(code: string, activityRunId?: string) {
+	const params = activityRunId ? `?activity_run_id=${activityRunId}` : "";
+	const res = await fetch(
+		`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/${params}`,
+		{
+			method: "GET",
+			credentials: "include",
+		}
+	);
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to fetch session summary");
+	}
+
+	return res.json();
+}
+
+export async function exportSummaryPDF(code: string): Promise<Blob> {
+	const res = await fetch(
+		`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/export/`,
+		{
+			method: "GET",
+			credentials: "include",
+		}
+	);
+
+	if (!res.ok) {
+		throw new Error("Failed to export PDF");
+	}
+
+	return res.blob();
+}
