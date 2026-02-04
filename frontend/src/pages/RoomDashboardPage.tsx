@@ -173,6 +173,15 @@ export default function RoomDashboardPage() {
                                     className={styles.primaryButton}
                                     type="button"
                                     style={{ marginTop: 12 }}
+                                    onClick={() => navigate(`/room/${code}/summary`)}
+                                >
+                                    View Session Summary
+                                </button>
+
+                                <button
+                                    className={styles.primaryButton}
+                                    type="button"
+                                    style={{ marginTop: 12 }}
                                     onClick={() => navigate(`/room/${code}/activities`)}
                                 >
                                     Select New Activity

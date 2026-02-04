@@ -59,8 +59,6 @@ def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, 
         activity_run_id=room.activity_run_id, 
     )
 
-#Rules
-
 def check_individual_inactivity_rule(room, phase_index=None):
     now = timezone.now()
 
@@ -86,14 +84,9 @@ def check_individual_inactivity_rule(room, phase_index=None):
     triggered = False
 
     for user in members_qs:
-        # If they posted recently, they are not inactive
         if user.id in active_user_ids:
             continue
-
-        # Ensure joined_at exists (prevents “grace logic” from skipping forever)
         membership, _ = RoomMember.objects.get_or_create(room=room, user=user)
-
-        # Grace period after joining
         if now - membership.joined_at < JOIN_GRACE_PERIOD:
             continue
 
@@ -128,7 +121,6 @@ def check_individual_inactivity_rule(room, phase_index=None):
 
 
 def check_equity_rule(room, phase_index=None) -> bool:
-#    Rule : Encourage balanced participation by nudging underrepresented members to contribute.
     posts = Post.objects.filter(room=room, phase_index=phase_index)
     if posts.count() < 3:
         return False
@@ -167,16 +159,11 @@ def check_equity_rule(room, phase_index=None) -> bool:
     return triggered
 
 def message_lacks_evidence(text: str) -> bool:
-#Rule : Detect messages that make claims without supporting evidence.
     t = (text or "").strip().lower()
     if not t:
         return False
-
-    # allow questions without marking
     if "?" in t:
         return False
-
-    # numbers count as evidence-like
     if any(ch.isdigit() for ch in t):
         return False
 
@@ -191,9 +178,17 @@ def message_lacks_evidence(text: str) -> bool:
 EVIDENCE_NUDGE_EVERY_N_FLAGGED = 3
 EVIDENCE_NUDGE_MIN_INTERVAL = timedelta(seconds=90)
 
+DOMINANT_SPEAKER_THRESHOLD = 3
+DOMINANT_SPEAKER_COOLDOWN = timedelta(minutes=5)
+
+UNANSWERED_QUESTION_TIMEOUT = timedelta(minutes=1)
+UNANSWERED_QUESTION_COOLDOWN = timedelta(minutes=10)
+
+SHORT_MESSAGE_LENGTH = 10
+SHORT_MESSAGE_COOLDOWN = timedelta(minutes=5)
+
 
 def check_evidence_rule(room, post) -> bool:
-# Rule: Nudge users to provide evidence when their messages lack it.
     if not message_lacks_evidence(post.content):
         return False
 
@@ -218,8 +213,6 @@ def check_evidence_rule(room, post) -> bool:
     if not (due_by_count or due_by_time):
         state.save(update_fields=["flagged_count"])
         return False
-
-    # record the nudge time
     state.last_nudged_at = now
     state.save(update_fields=["flagged_count", "last_nudged_at"])
 
@@ -249,19 +242,106 @@ def check_evidence_rule(room, post) -> bool:
 
     return True
 
+def check_dominant_speaker_rule(room, phase_index=None) -> bool:
+    posts = Post.objects.filter(room=room, phase_index=phase_index).order_by('-created_at')
+    if posts.count() < DOMINANT_SPEAKER_THRESHOLD:
+        return False
+
+    recent_posts = list(posts[:DOMINANT_SPEAKER_THRESHOLD])
+    if len(recent_posts) < DOMINANT_SPEAKER_THRESHOLD:
+        return False
+
+    first_author = recent_posts[0].author
+    if not all(p.author == first_author for p in recent_posts):
+        return False
+
+    agent = _agent("Equity Agent", "Encourages balanced participation and underrepresented voices.")
+    rule_name = f"dominant_speaker:user={first_author.id}"
+    cooldown_since = timezone.now() - DOMINANT_SPEAKER_COOLDOWN
+
+    if _recent(room, agent, rule_name, cooldown_since, phase_index):
+        return False
+
+    explanation = f"{first_author.username} has posted {DOMINANT_SPEAKER_THRESHOLD} consecutive messages. Encouraging turn-taking."
+    message = "Let's pause and hear from others before continuing — collaborative learning works best when everyone contributes!"
+
+    _create(room, agent, rule_name, message, explanation, phase_index)
+    return True
+
+
+def check_unanswered_question_rule(room, phase_index=None) -> bool:
+    now = timezone.now()
+    threshold_time = now - UNANSWERED_QUESTION_TIMEOUT
+
+    question_posts = Post.objects.filter(
+        room=room,
+        phase_index=phase_index,
+        content__contains='?',
+        created_at__lte=threshold_time
+    ).order_by('created_at')
+
+    agent = _agent("Socratic Agent", "Encourages evidence-based reasoning and clearer support for claims.")
+    cooldown_since = now - UNANSWERED_QUESTION_COOLDOWN
+    triggered = False
+
+    for question_post in question_posts:
+        later_posts = Post.objects.filter(
+            room=room,
+            phase_index=phase_index,
+            created_at__gt=question_post.created_at
+        ).exclude(author=question_post.author)
+
+        if later_posts.exists():
+            continue
+
+        rule_name = f"unanswered_question:post={question_post.id}"
+        if _recent(room, agent, rule_name, cooldown_since, phase_index):
+            continue
+
+        minutes_ago = int((now - question_post.created_at).total_seconds() / 60)
+        explanation = f"A question was asked {minutes_ago} minutes ago with no response yet."
+        message = "There's an open question above — can someone address it before moving on?"
+
+        _create(room, agent, rule_name, message, explanation, phase_index)
+        triggered = True
+        break
+
+    return triggered
+
+
+def check_short_message_rule(room, post) -> bool:
+    content = (post.content or "").strip()
+    if len(content) >= SHORT_MESSAGE_LENGTH:
+        return False
+
+    agent = _agent("Facilitator Agent", "Encourages quieter members to participate.")
+    rule_name = f"short_message:user={post.author.id}"
+    cooldown_since = timezone.now() - SHORT_MESSAGE_COOLDOWN
+
+    if _recent(room, agent, rule_name, cooldown_since, post.phase_index):
+        return False
+
+    explanation = f"Message was very brief ({len(content)} characters). Encouraging more substantive contributions."
+    message = "Quick responses are fine, but can you add a bit more detail or reasoning to help the discussion?"
+
+    _create(room, agent, rule_name, message, explanation, post.phase_index)
+    return True
+
+
 def check_all_rules(room, new_post=None):
-# Check all rules and return a list of triggered rule names
     triggered = []
 
     phase_index = getattr(new_post, "phase_index", None)
-
-    # Equity (optional to run on post)
     if check_equity_rule(room, phase_index=phase_index):
         triggered.append("unequal_participation")
-
-    # Evidence rule (post-specific)
+    if check_dominant_speaker_rule(room, phase_index=phase_index):
+        triggered.append("dominant_speaker")
+    if check_unanswered_question_rule(room, phase_index=phase_index):
+        triggered.append("unanswered_question")
     if new_post and check_evidence_rule(room, new_post):
         triggered.append("missing_evidence")
+    if new_post and check_short_message_rule(room, new_post):
+        triggered.append("short_message")
 
     return triggered
 

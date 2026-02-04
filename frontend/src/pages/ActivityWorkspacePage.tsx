@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import styles from "../styles/Login.module.css";
 import Modal from "../components/Modal";
 
@@ -54,6 +54,7 @@ function secondsLeft(iso?: string | null) {
 
 export default function ActivityWorkspacePage() {
     const { code } = useParams<{ code: string }>();
+    const navigate = useNavigate();
 
     const pollRef = useRef<number | null>(null);
     const [activity, setActivity] = useState<ActivityState | null>(null);
@@ -194,13 +195,10 @@ export default function ActivityWorkspacePage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content }),
             });
-
-            // If backend blocks the message and returns an intervention payload:
             if (res.status === 422) {
                 const intervention = await res.json();
 
                 setInterventionQueue((q) => [...q, intervention]);
-                // Clear input because it was "handled"
                 setInput("");
                 return;
             }
@@ -282,24 +280,45 @@ export default function ActivityWorkspacePage() {
                     </div>
 
                     <div style={{ display: "flex", gap: 10, padding: 12 }}>
-                        <input
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder={activity?.finished ? "Activity finished" : "Write a message…"}
-                            disabled={!!activity?.finished}
-                            style={{ flex: 1, height: 38, padding: "0 10px", borderRadius: 6, border: "1px solid #ccc" }}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") sendMessage();
-                            }}
-                        />
-                        <button
-                            className={styles.primaryButton}
-                            type="button"
-                            onClick={sendMessage}
-                            disabled={!!activity?.finished}
-                        >
-                            Send
-                        </button>
+                        {activity?.finished ? (
+                            <>
+                                <button
+                                    className={styles.primaryButton}
+                                    type="button"
+                                    style={{ flex: 1 }}
+                                    onClick={() => navigate(`/room/${code}/summary`)}
+                                >
+                                    View Session Summary
+                                </button>
+                                <button
+                                    className={styles.primaryButton}
+                                    type="button"
+                                    style={{ flex: 1 }}
+                                    onClick={() => navigate(`/room/${code}`)}
+                                >
+                                    Back to Room
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <input
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    placeholder="Write a message…"
+                                    style={{ flex: 1, height: 38, padding: "0 10px", borderRadius: 6, border: "1px solid #ccc" }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") sendMessage();
+                                    }}
+                                />
+                                <button
+                                    className={styles.primaryButton}
+                                    type="button"
+                                    onClick={sendMessage}
+                                >
+                                    Send
+                                </button>
+                            </>
+                        )}
                     </div>
 
                     <Modal

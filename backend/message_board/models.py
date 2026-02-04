@@ -99,3 +99,29 @@ class EvidenceNudgeState(models.Model):
         unique_together = ("room", "user", "phase_index")
     def __str__(self):
         return f'EvidenceNudgeState: {self.room.code} - {self.user.username} - Phase {self.phase_index}'
+
+
+class SessionSummary(models.Model):
+    """Stores computed session summaries for each activity run."""
+
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='summaries')
+    activity_run_id = models.UUIDField(db_index=True)
+    activity = models.ForeignKey(Activity, on_delete=models.SET_NULL, null=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    activity_started_at = models.DateTimeField(null=True, blank=True)
+    activity_ended_at = models.DateTimeField(null=True, blank=True)
+
+    # Computed summary data stored as JSON for flexibility
+    participation_data = models.JSONField(default=dict)  # Per-user stats
+    process_data = models.JSONField(default=dict)        # Phase timing, interventions
+    quality_data = models.JSONField(default=dict)        # Rubric flags
+    extracted_content = models.JSONField(default=dict)   # Decisions, action items, questions
+
+    class Meta:
+        unique_together = ('room', 'activity_run_id')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Summary for {self.room.code} - {self.activity_run_id}'

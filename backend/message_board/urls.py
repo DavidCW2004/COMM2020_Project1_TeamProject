@@ -13,5 +13,7 @@ urlpatterns = [
     path("rooms/<str:code>/members/", views.room_members, name="room_members"),
     path("rooms/<str:code>/select-activity/", views.select_activity, name="select_activity"),
     path("rooms/<str:code>/start-activity/", views.start_activity, name="start_activity"),
-    
+    path("rooms/<str:code>/summary/", views.session_summary, name="session_summary"),
+    path("rooms/<str:code>/summary/export/", views.export_summary_pdf, name="export_summary_pdf"),
+
 ] + router.urls
