@@ -135,13 +135,18 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Enable WhiteNoise compression and caching for static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# CSRF trusted origins (set in production, e.g. https://your-app.onrender.com)
 csrf_trusted_origins_env = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 if csrf_trusted_origins_env:
     CSRF_TRUSTED_ORIGINS = [
         origin.strip()
         for origin in csrf_trusted_origins_env.split(",")
         if origin.strip()
+    ]
+else:
+    # ✅ local dev fallback (Vite)
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ]
 
 # Auth redirects
