@@ -33,6 +33,25 @@ export type Room = {
 		total_phases?: number | null;
 	};
 };
+export type FacilitatorRoomStats = {
+	code: string;
+	name: string;
+	active_participants: number;
+	is_running: boolean;
+	current_activity: string;
+	post_count: number;
+};
+
+export type FacilitatorDashboardStatsResponse = {
+	rooms: FacilitatorRoomStats[];
+};
+
+export type FacilitatorSessionSummary = {
+	participation: any;
+	quality: any;
+	process: any;
+	outcomes: any;
+};
 
 export async function createTempAccount(displayName: string, role: "learner" | "facilitator") {
 	const url = `${API_BASE_URL}/api/temp-login/`;
@@ -205,4 +224,134 @@ export async function exportSummaryPDF(code: string): Promise<Blob> {
 	}
 
 	return res.blob();
+}
+
+function buildError(detail: any, fallback: string) {
+	if (typeof detail === "string" && detail.trim()) return detail;
+	return fallback;
+}
+
+export async function fetchFacilitatorDashboardStats() {
+	const res = await fetch(`${API_BASE_URL}/api/facilitator/dashboard/`, {
+		method: "GET",
+		credentials: "include",
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to fetch facilitator dashboard stats");
+	}
+
+	return (await res.json()) as { rooms: FacilitatorRoomStats[] };
+}
+
+export async function fetchFacilitatorActivities() {
+	const res = await fetch(`${API_BASE_URL}/api/facilitator/activities/`, {
+		method: "GET",
+		credentials: "include",
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(buildError(error.detail, "Failed to fetch activities"));
+	}
+
+	return res.json();
+}
+
+export async function createFacilitatorActivity(payload: any) {
+	const res = await fetch(`${API_BASE_URL}/api/facilitator/activities/`, {
+		method: "POST",
+		credentials: "include",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(buildError(error.detail, "Failed to create activity"));
+	}
+
+	return res.json();
+}
+
+export async function updateFacilitatorActivity(id: number | string, payload: any) {
+	const res = await fetch(`${API_BASE_URL}/api/facilitator/activities/${id}/`, {
+		method: "PUT",
+		credentials: "include",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(buildError(error.detail, "Failed to update activity"));
+	}
+
+	return res.json();
+}
+
+export async function fetchFacilitatorSessionSummary(roomCode: string, activityRunId?: string) {
+	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
+	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
+
+	const res = await fetch(url, { method: "GET", credentials: "include" });
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to fetch facilitator session summary");
+	}
+
+	return res.json();
+}
+
+export async function fetchFacilitatorRoomSummary(roomCode: string, activityRunId?: string) {
+	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
+	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
+
+	const res = await fetch(url, { method: "GET", credentials: "include" });
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to fetch facilitator summary");
+	}
+
+	return (await res.json()) as FacilitatorSessionSummary;
+}
+
+export async function regenerateFacilitatorRoomSummary(roomCode: string, activityRunId?: string) {
+	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
+	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
+
+	const csrf = getCookie("csrftoken");
+
+	const res = await fetch(url, {
+		method: "POST",
+		credentials: "include",
+		headers: {
+			"Content-Type": "application/json",
+			...(csrf ? { "X-CSRFToken": csrf } : {}),
+		},
+		body: JSON.stringify({}),
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to regenerate facilitator summary");
+	}
+
+	return res.json();
+}
+
+
+export async function ensureCsrfCookie() {
+	await fetch(`${API_BASE_URL}/api/csrf/`, {
+		method: "GET",
+		credentials: "include",
+	});
+}
+
+function getCookie(name: string) {
+	const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+	return match ? decodeURIComponent(match[2]) : null;
 }
