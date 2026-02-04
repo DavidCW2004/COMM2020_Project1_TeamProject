@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "../styles/Login.module.css";
 import { createTempAccount } from "../api/client";
+import { ensureCsrfCookie } from "../api/client";
 
 
 export default function LoginPage() {
@@ -16,9 +17,10 @@ export default function LoginPage() {
         setIsSubmitting(true);
 
         try {
-            console.log("Creating temp account with:", { displayName: displayName.trim(), role });
             const response = await createTempAccount(displayName.trim(), role);
-            console.log("Temp account created:", response);
+            await ensureCsrfCookie();
+
+
             const payload = {
                 id: response.id,
                 username: response.username,
@@ -28,10 +30,10 @@ export default function LoginPage() {
             };
 
             localStorage.setItem("sst:user", JSON.stringify(payload));
-            navigate("/rooms");
+
+            navigate(response.role === "facilitator" ? "/facilitator" : "/rooms");
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Failed to create account";
-            console.error("Error creating temp account:", errorMessage);
             setError(errorMessage);
         } finally {
             setIsSubmitting(false);
@@ -39,13 +41,14 @@ export default function LoginPage() {
     }, [displayName, navigate, role]);
 
 
+
     return (
         <div className={styles.page}>
             <div className={styles.rectangleParent}>
                 <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv}/>
-                        <h1 className={styles.socialStudyTeammates}>Social Study Teammates</h1>
-                        <h2 className={styles.collaborativeLearningWith}>Collaborative Learning with Structured Support</h2>
+                    <div className={styles.rectangleDiv} />
+                    <h1 className={styles.socialStudyTeammates}>Social Study Teammates</h1>
+                    <h2 className={styles.collaborativeLearningWith}>Collaborative Learning with Structured Support</h2>
                 </div>
                 <div className={styles.frameChild} />
                 <div className={styles.rectangleGroup}>
