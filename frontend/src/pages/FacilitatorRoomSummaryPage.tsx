@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import styles from "../styles/Login.module.css";
 import type { FacilitatorSessionSummary } from "../api/client";
 import { fetchFacilitatorRoomSummary, regenerateFacilitatorRoomSummary } from "../api/client";
+import { exportFacilitatorSummaryPDF } from "../api/client";
 
 type SummaryState =
     | { status: "loading" }
@@ -57,6 +58,31 @@ export default function FacilitatorRoomSummaryPage() {
         }
     }
 
+
+    async function downloadPdf() {
+        if (!code) return;
+
+        try {
+            const blob = await exportFacilitatorSummaryPDF(code, activityRunId);
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+
+            const runSuffix = activityRunId ? `_${activityRunId}` : "";
+            a.download = `session_summary_${code.toUpperCase()}${runSuffix}.pdf`;
+
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Failed to download PDF";
+            setState({ status: "error", message: msg });
+        }
+    }
+
     useEffect(() => {
         void load();
     }, [code, activityRunId]);
@@ -104,6 +130,17 @@ export default function FacilitatorRoomSummaryPage() {
                         >
                             {busy ? "Generating…" : "Generate / Regenerate"}
                         </button>
+
+                        <button
+                            className={styles.primaryButton}
+                            type="button"
+                            style={{ height: 36 }}
+                            onClick={() => void downloadPdf()}
+                            disabled={!code || busy || state.status !== "ready"}
+                        >
+                            Download PDF
+                        </button>
+
                     </div>
                     <div className={styles.scrollArea} style={{ padding: 12 }}>
                         {state.status === "loading" && (
@@ -133,24 +170,6 @@ export default function FacilitatorRoomSummaryPage() {
                             </div>
                         )}
                     </div>
-                </div>
-
-                <div className={styles.buttonParent} style={{ width: "100%" }}>
-                    <button
-                        className={styles.roomButton}
-                        type="button"
-                        onClick={() => code && navigate(`/room/${code}`)}
-                    >
-                        <span className={styles.roomLabel}>Open Room</span>
-                    </button>
-
-                    <button
-                        className={styles.roomButton}
-                        type="button"
-                        onClick={() => navigate("/facilitator")}
-                    >
-                        <span className={styles.roomLabel}>Facilitator Home</span>
-                    </button>
                 </div>
             </div>
         </div>

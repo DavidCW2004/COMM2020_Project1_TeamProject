@@ -53,6 +53,23 @@ export type FacilitatorSessionSummary = {
 	outcomes: any;
 };
 
+export type ActivityPhase = {
+	name: string;
+	prompt: string;
+	duration_seconds?: number;
+	assessment_criteria?: string[];
+};
+
+export type ActivityDTO = {
+	id: number;
+	name: string;
+	description?: string | null;
+	phases?: ActivityPhase[] | any;
+	assessment_criteria?: string[] | any;
+	created_at?: string;
+};
+
+
 export async function createTempAccount(displayName: string, role: "learner" | "facilitator") {
 	const url = `${API_BASE_URL}/api/temp-login/`;
 	console.log("Fetching:", url);
@@ -354,4 +371,48 @@ export async function ensureCsrfCookie() {
 function getCookie(name: string) {
 	const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
 	return match ? decodeURIComponent(match[2]) : null;
+}
+
+export async function downloadRoomSummaryPDF(roomCode: string): Promise<Blob> {
+	return exportSummaryPDF(roomCode);
+}
+
+export async function exportFacilitatorSummaryPDF(roomCode: string, activityRunId?: string): Promise<Blob> {
+	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/pdf/`;
+	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
+
+	const res = await fetch(url, { method: "GET", credentials: "include" });
+
+	if (!res.ok) {
+		const errorText = await res.text().catch(() => "");
+		throw new Error(errorText || "Failed to export PDF");
+	}
+
+	return res.blob();
+}
+
+async function authedJson(url: string, init: RequestInit = {}) {
+	const csrf = getCookie("csrftoken");
+	const headers: Record<string, string> = {
+		...(init.headers as Record<string, string> | undefined),
+	};
+
+	if (init.body) {
+		headers["Content-Type"] = "application/json";
+		if (csrf) headers["X-CSRFToken"] = csrf;
+	}
+
+	const res = await fetch(url, { credentials: "include", ...init, headers });
+
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({}));
+		throw new Error(err.detail || `Request failed (${res.status})`);
+	}
+
+	return res.json();
+}
+
+export async function deleteFacilitatorActivity(id: number): Promise<void> {
+	const url = `${API_BASE_URL}/api/facilitator/activities/${id}/`;
+	await authedJson(url, { method: "DELETE" });
 }

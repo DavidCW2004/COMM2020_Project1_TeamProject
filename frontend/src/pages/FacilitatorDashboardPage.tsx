@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import styles from "../styles/Login.module.css";
 import type { FacilitatorRoomStats } from "../api/client";
 import { fetchFacilitatorDashboardStats } from "../api/client";
+import { fetchRoom } from "../api/client";
 
 export default function FacilitatorDashboardPage() {
     const navigate = useNavigate();
@@ -25,6 +26,30 @@ export default function FacilitatorDashboardPage() {
         }
     }
 
+    async function openRoom(roomCode: string) {
+        try {
+            const room = await fetchRoom(roomCode);
+
+            const isRunning = room.activity?.is_running === true;
+            const isFinished = room.activity?.finished === true;
+
+            if (isRunning && !isFinished) {
+                navigate(`/room/${roomCode}/activity`);
+                return;
+            }
+
+            if (isRunning && isFinished) {
+                navigate(`/facilitator/rooms/${roomCode}/summary`);
+                return;
+            }
+
+            navigate(`/room/${roomCode}`);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Failed to open room";
+            setError(msg);
+        }
+    }
+
     useEffect(() => {
         void load();
         const id = window.setInterval(() => void load(), 5000); // keep it feeling “live”
@@ -44,7 +69,6 @@ export default function FacilitatorDashboardPage() {
     return (
         <div className={styles.page}>
             <div className={styles.rectangleParent}>
-                {/* Header card (reused) */}
                 <div className={styles.frameDiv}>
                     <div className={styles.rectangleDiv} />
                     <h2 className={styles.socialStudyTeammates}>Facilitator Dashboard</h2>
@@ -124,17 +148,7 @@ export default function FacilitatorDashboardPage() {
                                                 </span>
                                             </div>
                                         </div>
-
                                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                            <button
-                                                className={styles.primaryButton}
-                                                type="button"
-                                                style={{ height: 32, width: 160 }}
-                                                onClick={() => navigate(`/room/${r.code}`)}
-                                            >
-                                                Open Room
-                                            </button>
-
                                             <button
                                                 className={styles.primaryButton}
                                                 type="button"
