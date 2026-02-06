@@ -373,7 +373,8 @@
     margin-top: 12px;
     flex: 1;
     overflow-y: auto;
-    padding-right: 8px;
+    padding: 12px;
+    overflow-x: hidden;
 
 }
 

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "../styles/Login.module.css";
 import Modal from "../components/Modal";
-import { createRoom, joinRoom } from "../api/client";
+import { createRoom, joinRoom, fetchRooms, type RoomListItem } from "../api/client";
 import modalStyles from "../styles/Modal.module.css";
 import { useNavigate } from "react-router-dom";
 
@@ -14,7 +14,10 @@ type Room = {
 export default function RoomsHubPage() {
 
     const navigate = useNavigate();
-    const rooms: Room[] = []; // Placeholder for rooms data
+    const [rooms, setRooms] = useState<RoomListItem[]>([]);
+    const [query, setQuery] = useState("");
+    const [roomsError, setRoomsError] = useState<string | null>(null);
+    const [roomsLoading, setRoomsLoading] = useState(true)
 
     const [createOpen, setCreateOpen] = useState(false);
     const [joinOpen, setJoinOpen] = useState(false);
@@ -104,6 +107,32 @@ export default function RoomsHubPage() {
     };
 
 
+    async function loadRooms() {
+        setRoomsLoading(true);
+        setRoomsError(null);
+        try {
+            const data = await fetchRooms();
+            const active = data.filter((r) => r.members_count > 0 || r.is_running);
+            setRooms(active);
+        } catch (e) {
+            setRoomsError(e instanceof Error ? e.message : "Failed to load rooms");
+        } finally {
+            setRoomsLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        void loadRooms();
+        const id = window.setInterval(() => void loadRooms(), 5000);
+        return () => window.clearInterval(id);
+    }, []);
+
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return rooms;
+        return rooms.filter((r) => `${r.name} ${r.code}`.toLowerCase().includes(q));
+    }, [rooms, query]);
+
     return (
         <div className={styles.page}>
             <div className={styles.rectangleParent}>
@@ -122,23 +151,99 @@ export default function RoomsHubPage() {
                     </button>
                 </div>
 
-                <div className={styles.roomsListParent}>
-                    {rooms.length === 0 ? (
+                <div className={styles.membersListParent} style={{ width: "100%" }}>
+                    <div className={styles.membersHeading} style={{ fontSize: 28 }}>
+                        Active Rooms
+                    </div>
+
+
+                    {roomsError && <div className={styles.error}>{roomsError}</div>}
+
+                    {!roomsError && roomsLoading && (
+                        <div style={{ textAlign: "center", opacity: 0.8, padding: 20 }}>Loading rooms…</div>
+                    )}
+
+                    {!roomsError && !roomsLoading && filtered.length === 0 && (
                         <div className={styles.emptyState}>
-                            <p className={styles.noRoomsAvailable}>No rooms available.</p>
-                            <p className={styles.createOrJoinARoom}>Create a room to get started.</p>
+                            <div className={styles.emptyTitle}>No active rooms</div>
+                            <div className={styles.emptySubtitle}>Create a room or join with a code.</div>
                         </div>
-                    ) : (
-                        rooms.map((room) => (
-                            <div key={room.id}>
-                                {/* Render room details here */}
-                                <div>{room.name}</div>
-                                <div>{room.code}</div>
+                    )}
+
+                    {!roomsError && filtered.length > 0 && (
+                        <div className={styles.scrollArea} style={{ padding: 12 }}>
+                            <div className={styles.memberList} style={{ marginLeft: 0 }}>
+                                {filtered.map((r) => (
+                                    <div
+                                        key={r.code}
+                                        style={{
+                                            background: "#f2efef",
+                                            border: "1px solid #cfcfcf",
+                                            borderRadius: 10,
+                                            padding: 12,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            gap: 12,
+                                            width: "100%",         
+                                            boxSizing: "border-box",
+                                            overflow: "hidden",    
+                                        }}
+                                    >
+                                        <div style={{ minWidth: 0, flex: "1 1 auto" }}>
+                                            <div
+                                                style={{
+                                                    fontWeight: 700,
+                                                    fontSize: 18,
+                                                    lineHeight: 1.1,
+                                                    whiteSpace: "nowrap",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                }}
+                                            >
+                                                {r.name}{" "}
+                                                <span style={{ fontWeight: 500, fontSize: 14, opacity: 0.75 }}>
+                                                    ({r.code})
+                                                </span>
+                                            </div>
+
+                                            <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
+                                                Members: <b>{r.members_count}</b>
+                                            </div>
+
+                                            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
+                                                Status: <span style={{ fontWeight: 700 }}>{r.is_running ? "Running" : "Idle"}</span>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ flex: "0 0 auto" }}>
+                                            <button
+                                                className={styles.primaryButton}
+                                                type="button"
+                                                style={{
+                                                    height: 32,
+                                                    width: 140,         
+                                                    maxWidth: "100%",
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/room/${r.code}`);
+                                                }}
+                                            >
+                                                Open Room →
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                ))}
                             </div>
-                        ))
+                        </div>
                     )}
                 </div>
+
             </div>
+
 
             <Modal
                 isOpen={createOpen}
