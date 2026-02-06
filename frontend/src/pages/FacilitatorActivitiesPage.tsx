@@ -7,7 +7,7 @@ type Phase = {
     name: string;
     prompt: string;
     duration_seconds: number;
-    assessment_criteria: string[]; // stored inside phases (serializer-safe)
+    assessment_criteria: string[];
 };
 
 export default function FacilitatorActivitiesPage() {
@@ -15,8 +15,6 @@ export default function FacilitatorActivitiesPage() {
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [activityType, setActivityType] = useState("structured_discussion");
-
     const [phases, setPhases] = useState<Phase[]>([
         { name: "understand", prompt: "", duration_seconds: 420, assessment_criteria: [] },
     ]);
@@ -27,6 +25,7 @@ export default function FacilitatorActivitiesPage() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
 
     function updatePhase(idx: number, patch: Partial<Phase>) {
         setPhases((prev) => {
@@ -117,6 +116,14 @@ export default function FacilitatorActivitiesPage() {
         }
     }
 
+    type ActivityType = "problem-solving" | "discussion" | "design critique";
+    const ACTIVITY_TYPES: ActivityType[] = ["problem-solving", "discussion", "design critique"];
+    const [activityType, setActivityType] = useState<ActivityType>("discussion");
+
+    function isActivityType(v: string): v is ActivityType {
+        return (ACTIVITY_TYPES as readonly string[]).includes(v);
+    }
+
     return (
         <div className={styles.page}>
             <div className={styles.rectangleParent}>
@@ -175,13 +182,19 @@ export default function FacilitatorActivitiesPage() {
                         />
 
                         <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Activity type</label>
-                        <input
+                        <select
                             className={styles.searchInput}
                             value={activityType}
-                            onChange={(e) => setActivityType(e.target.value)}
-                            placeholder="structured_discussion"
-                            style={{ marginBottom: 12 }}
-                        />
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                if (isActivityType(v)) setActivityType(v);
+                            }}
+                            style={{ marginBottom: 12, height: 36 }}
+                        >
+                            <option value="problem-solving">Problem-Solving</option>
+                            <option value="discussion">Discussion</option>
+                            <option value="design critique">Design Critique</option>
+                        </select>
 
                         <div style={{ fontWeight: 700, marginBottom: 6 }}>Phases</div>
 
