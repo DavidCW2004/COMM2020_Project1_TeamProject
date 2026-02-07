@@ -25,11 +25,11 @@ export default function FacilitatorDashboardPage() {
         }
     }
 
+
     useEffect(() => {
         void load();
         const id = window.setInterval(() => void load(), 5000); // keep it feeling “live”
         return () => window.clearInterval(id);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const filtered = useMemo(() => {
@@ -44,7 +44,6 @@ export default function FacilitatorDashboardPage() {
     return (
         <div className={styles.page}>
             <div className={styles.rectangleParent}>
-                {/* Header card (reused) */}
                 <div className={styles.frameDiv}>
                     <div className={styles.rectangleDiv} />
                     <h2 className={styles.socialStudyTeammates}>Facilitator Dashboard</h2>
@@ -124,17 +123,7 @@ export default function FacilitatorDashboardPage() {
                                                 </span>
                                             </div>
                                         </div>
-
                                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                            <button
-                                                className={styles.primaryButton}
-                                                type="button"
-                                                style={{ height: 32, width: 160 }}
-                                                onClick={() => navigate(`/room/${r.code}`)}
-                                            >
-                                                Open Room
-                                            </button>
-
                                             <button
                                                 className={styles.primaryButton}
                                                 type="button"

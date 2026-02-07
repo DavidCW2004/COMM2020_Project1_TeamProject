@@ -10,6 +10,8 @@ from .models import Post, Room, Intervention, Activity, RoomMember, SessionSumma
 from .serializers import PostSerializer, ActivitySerializer
 from .agent_rules import check_all_rules, check_individual_inactivity_rule, check_unanswered_question_rule, message_lacks_evidence
 from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Count
 
 
 
@@ -26,11 +28,33 @@ class ActivityViewSet(viewsets.ModelViewSet):
 
 @csrf_exempt
 def rooms(request):
-    if request.method != "POST":
-        return JsonResponse({"detail": "Method not allowed"}, status=405)
-
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if request.method == "GET":
+        qs = (
+            Room.objects
+            .annotate(members_count=Count("members"))
+            .filter(members_count__gt=0)
+            .order_by("-created_at")
+        )
+
+        data = []
+        for r in qs:
+            data.append({
+                "code": r.code,
+                "name": r.name,
+                "members_count": r.members_count,
+                "is_running": r.activity_is_running,
+                "selected_activity": {"id": r.selected_activity_id, "name": r.selected_activity.name}
+                    if r.selected_activity_id else None,
+                "created_at": r.created_at.isoformat(),
+            })
+
+        return JsonResponse(data, safe=False, status=200)
+
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
 
     try:
         payload = json.loads(request.body or "{}")
@@ -44,13 +68,12 @@ def rooms(request):
         if not name:
             return JsonResponse({"detail": "name is required"}, status=400)
 
-        # Ensure unique code (rare collision, but easy to guard)
         code = get_random_string(6).upper()
         while Room.objects.filter(code=code).exists():
             code = get_random_string(6).upper()
 
         room = Room.objects.create(code=code, name=name)
-        room.members.add(request.user)  
+        room.members.add(request.user)
         RoomMember.objects.get_or_create(room=room, user=request.user)
 
         return JsonResponse({
@@ -71,7 +94,7 @@ def rooms(request):
 
         already_member = room.members.filter(id=request.user.id).exists()
         room.members.add(request.user)
-        RoomMember.objects.get_or_create(room=room, user=request.user)  
+        RoomMember.objects.get_or_create(room=room, user=request.user)
 
         return JsonResponse({
             "code": room.code,
@@ -324,26 +347,56 @@ def select_activity(request, code):
         "activity_name": activity.name,
     }, status=200)
 
+from django.utils import timezone
+from datetime import timedelta
+
 def get_activity_state(room):
-    if not getattr(room, "selected_activity", None) or not getattr(room, "activity_is_running", False) or not getattr(room, "activity_started_at", None):
+    activity = getattr(room, "selected_activity", None)
+
+    if not activity or not getattr(room, "activity_is_running", False) or not getattr(room, "activity_started_at", None):
         return {
             "is_running": False,
             "finished": False,
-            "activity_id": room.selected_activity.id if getattr(room, "selected_activity", None) else None,
-            "activity_name": room.selected_activity.name if getattr(room, "selected_activity", None) else None,
+            "activity_id": activity.id if activity else None,
+            "activity_name": activity.name if activity else None,
+            "phase_index": None,
+            "phase_name": None,
+            "phase_prompt": None,
+            "phase_ends_at": None,
+            "total_phases": len(activity.phases or []) if activity else 0,
         }
 
-    activity = room.selected_activity
     phases = activity.phases or []
+    total_phases = len(phases)
+
+    if total_phases == 0:
+        return {
+            "is_running": False,
+            "finished": True,
+            "activity_id": activity.id,
+            "activity_name": activity.name,
+            "phase_index": None,
+            "phase_name": None,
+            "phase_prompt": None,
+            "phase_ends_at": None,
+            "total_phases": 0,
+        }
+
     now = timezone.now()
     elapsed = (now - room.activity_started_at).total_seconds()
 
-    t = 0
+    cumulative = 0
     for idx, ph in enumerate(phases):
-        mins = ph.get("time_limit_minutes") or 0
-        duration = mins * 60
-        if elapsed < t + duration:
-            phase_ends_at = room.activity_started_at + timezone.timedelta(seconds=(t + duration))
+        duration = int(ph.get("duration_seconds") or 0)
+
+        if duration <= 0:
+            duration = 1
+
+        phase_start = cumulative
+        phase_end = cumulative + duration
+
+        if elapsed < phase_end:
+            phase_ends_at = room.activity_started_at + timedelta(seconds=phase_end)
             return {
                 "is_running": True,
                 "finished": False,
@@ -353,21 +406,24 @@ def get_activity_state(room):
                 "phase_name": ph.get("name"),
                 "phase_prompt": ph.get("prompt"),
                 "phase_ends_at": phase_ends_at.isoformat(),
-                "total_phases": len(phases),
+                "total_phases": total_phases,
             }
-        t += duration
 
+        cumulative = phase_end
+
+    finished_at = room.activity_started_at + timedelta(seconds=cumulative)
     return {
-        "is_running": True,
+        "is_running": False,
         "finished": True,
         "activity_id": activity.id,
         "activity_name": activity.name,
-        "phase_index": len(phases) - 1 if phases else 0,
-        "phase_name": phases[-1].get("name") if phases else None,
-        "phase_prompt": phases[-1].get("prompt") if phases else None,
-        "phase_ends_at": None,
-        "total_phases": len(phases),
+        "phase_index": total_phases - 1,
+        "phase_name": phases[-1].get("name"),
+        "phase_prompt": phases[-1].get("prompt"),
+        "phase_ends_at": finished_at.isoformat(),
+        "total_phases": total_phases,
     }
+
 
 
 @csrf_exempt

@@ -1,5 +1,5 @@
 import json
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt # not used but allows for csrf exemption if needed
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
@@ -83,3 +83,35 @@ def manage_session_summary(request, room_code):
         })
     except SessionSummary.DoesNotExist: # If summary does not yet exist
         return JsonResponse({"detail": "Summary not yet generated"}, status=404)
+    
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_facilitator_summary_pdf(request, room_code):
+    if request.user.last_name != "facilitator":
+        return JsonResponse({"detail": "Facilitator access required"}, status=403)
+
+    try:
+        room = Room.objects.get(code=room_code.upper())
+    except Room.DoesNotExist:
+        return JsonResponse({"detail": "Room not found"}, status=404)
+
+    activity_run_id = request.GET.get("activity_run_id") or room.activity_run_id
+    if not activity_run_id:
+        return JsonResponse({"detail": "No active or past run found"}, status=404)
+
+    summary, created = SessionSummary.objects.get_or_create(
+        room=room,
+        activity_run_id=activity_run_id,
+        defaults={},
+    )
+    if created:
+        generate_summary(room, activity_run_id)
+        summary = SessionSummary.objects.get(room=room, activity_run_id=activity_run_id)
+
+    pdf_bytes = generate_summary_pdf(summary, room)
+
+    filename = f"session_summary_{room.code}_{activity_run_id}.pdf"
+    resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
