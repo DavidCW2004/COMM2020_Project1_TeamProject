@@ -6,9 +6,9 @@ import ActivityCatalogue from "../pages/ActivityCataloguePage";
 import ActivityWorkspacePage from "../pages/ActivityWorkspacePage";
 import SessionSummaryPage from "../pages/SessionSummaryPage";
 import FacilitatorDashboardPage from "../pages/FacilitatorDashboardPage";
-import RequireRole from "../components/RequireRole";
 import FacilitatorRoomSummaryPage from "../pages/FacilitatorRoomSummaryPage";
-
+import RequireRoles from "../components/RequireRoles";
+import FacilitatorActivitiesPage from "../pages/FacilitatorActivitiesPage";
 
 export const router = createBrowserRouter([
     { path: "/", element: <LoginPage /> },
@@ -16,58 +16,67 @@ export const router = createBrowserRouter([
     {
         path: "/rooms",
         element: (
-            <RequireRole role="learner">
+            <RequireRoles roles={["learner"]}>
                 <RoomsHubPage />
-            </RequireRole>
+            </RequireRoles>
         ),
     },
     {
         path: "/room/:code",
         element: (
-            <RequireRole role="learner">
+            <RequireRoles roles={["learner"]}>
                 <RoomDashboardPage />
-            </RequireRole>
+            </RequireRoles>
         ),
     },
     {
         path: "/room/:code/activities",
         element: (
-            <RequireRole role="learner">
+            <RequireRoles roles={["learner"]}>
                 <ActivityCatalogue />
-            </RequireRole>
+            </RequireRoles>
         ),
     },
     {
         path: "/room/:code/activity",
         element: (
-            <RequireRole role="learner">
+            <RequireRoles roles={["learner"]}>
                 <ActivityWorkspacePage />
-            </RequireRole>
+            </RequireRoles>
         ),
     },
     {
         path: "/room/:code/summary",
         element: (
-            <RequireRole role="learner">
+            <RequireRoles roles={["learner"]}>
                 <SessionSummaryPage />
-            </RequireRole>
+            </RequireRoles>
         ),
     },
 
     {
         path: "/facilitator",
         element: (
-            <RequireRole role="facilitator">
+            <RequireRoles roles={["facilitator"]}>
                 <FacilitatorDashboardPage />
-            </RequireRole>
+            </RequireRoles>
         ),
     },
     {
-        path : "/facilitator/rooms/:code/summary",
+        path: "/facilitator/rooms/:code/summary",
         element: (
-            <RequireRole role="facilitator">
+            <RequireRoles roles={["facilitator"]}>
                 <FacilitatorRoomSummaryPage />
-            </RequireRole>
+            </RequireRoles>
         ),
     },
+    {
+        path: "/facilitator/activities",
+        element: (
+            <RequireRoles roles={["facilitator"]}>
+                <FacilitatorActivitiesPage />
+            </RequireRoles>
+        ),
+    },
+
 ]);
