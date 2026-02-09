@@ -387,10 +387,11 @@ def get_activity_state(room):
 
     cumulative = 0
     for idx, ph in enumerate(phases):
-        duration = int(ph.get("duration_seconds") or 0)
+        duration_minutes = float(ph.get("time_limit_minutes") or 0)
+        duration = int(duration_minutes * 60)
 
         if duration <= 0:
-            duration = 1
+            duration = 60
 
         phase_start = cumulative
         phase_end = cumulative + duration
