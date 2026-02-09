@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styles from "../styles/Login.module.css";
 
-import { fetchRoom, fetchRoomMembers, startRoomActivity } from "../api/client";
+import { fetchRoom, fetchRoomMembers, joinRoom, startRoomActivity } from "../api/client";
 
 type Room = {
     code: string;
@@ -38,12 +38,31 @@ export default function RoomDashboardPage() {
     const [room, setRoom] = useState<Room | null>(null);
     const [members, setMembers] = useState<Member[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [joinError, setJoinError] = useState<string | null>(null);
+    const [joinLoading, setJoinLoading] = useState(false);
 
     const isActivityRunning = room?.activity?.is_running === true;
     const isActivityFinished = room?.activity?.finished === true;
 
 
     const navigate = useNavigate();
+
+    const currentUser = useMemo(() => {
+        const raw = localStorage.getItem("sst:user");
+        if (!raw) return null;
+        try {
+            return JSON.parse(raw) as { displayName?: string; username?: string };
+        } catch {
+            return null;
+        }
+    }, []);
+
+    const isMember = useMemo(() => {
+        if (!currentUser) return false;
+        const names = [currentUser.displayName, currentUser.username].filter(Boolean);
+        if (names.length === 0) return false;
+        return members.some((m) => names.includes(m.name));
+    }, [currentUser, members]);
 
     useEffect(() => {
         if (!code) return;
@@ -62,6 +81,13 @@ export default function RoomDashboardPage() {
         const id = window.setInterval(loadRoom, 2000);
         return () => window.clearInterval(id);
     }, [code]);
+
+    useEffect(() => {
+        if (!code) return;
+        if (!isMember) return;
+        if (!isActivityRunning || isActivityFinished) return;
+        navigate(`/room/${code}/activity`);
+    }, [code, isActivityRunning, isActivityFinished, isMember, navigate]);
 
     useEffect(() => {
         if (!code) return;
@@ -102,6 +128,21 @@ export default function RoomDashboardPage() {
         }
     }
 
+    async function handleJoinRoom() {
+        if (!code) return;
+        setJoinLoading(true);
+        setJoinError(null);
+        try {
+            await joinRoom(code);
+            const memberData = await fetchRoomMembers(code);
+            setMembers(memberData);
+        } catch (err) {
+            setJoinError(err instanceof Error ? err.message : "Failed to join room");
+        } finally {
+            setJoinLoading(false);
+        }
+    }
+
 
 
         return (
@@ -118,6 +159,22 @@ export default function RoomDashboardPage() {
                     {/* Members Card */}
                     <div className={styles.membersListParent}>
                         <div className={styles.membersHeading}>Members</div>
+
+                        {!isMember && (
+                            <div style={{ marginBottom: 12, textAlign: "center" }}>
+                                <button
+                                    className={styles.primaryButton}
+                                    type="button"
+                                    onClick={handleJoinRoom}
+                                    disabled={joinLoading}
+                                >
+                                    {joinLoading ? "Joining..." : "Join Room"}
+                                </button>
+                                {joinError && (
+                                    <div style={{ marginTop: 6, color: "crimson", fontSize: 12 }}>{joinError}</div>
+                                )}
+                            </div>
+                        )}
 
                         {members.length === 0 ? (
                             <div style={{ textAlign: "center", opacity: 0.8 }}>No members yet</div>
