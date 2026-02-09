@@ -145,37 +145,24 @@ export default function RoomDashboardPage() {
 
 
 
-        return (
-            <div className={styles.page}>
-                <div className={styles.rectangleParent}>
-                    <div className={styles.frameDiv}>
-                        <div className={styles.rectangleDiv} />
-                        <h2 className={styles.socialStudyTeammates}>
-                            {room ? room.name : "Loading..."}
-                        </h2>
-                        <div className={styles.collaborativeLearningWith}>Code : {code ?? ""}</div>
-                    </div>
+    return (
+        <div className={styles.page}>
+            <div className={styles.rectangleParent}>
+                <div className={styles.frameDiv}>
+                    <div className={styles.rectangleDiv} />
+                    <h2 className={styles.socialStudyTeammates}>
+                        {room ? room.name : "Loading..."}
+                    </h2>
+                    <div className={styles.collaborativeLearningWith}>Code : {code ?? ""}</div>
+                </div>
 
-                    {/* Members Card */}
-                    <div className={styles.membersListParent}>
-                        <div className={styles.membersHeading}>Members</div>
+                <div className={styles.membersListParent}>
+                    <div className={styles.membersHeading}>Members</div>
 
-                        {!isMember && (
-                            <div style={{ marginBottom: 12, textAlign: "center" }}>
-                                <button
-                                    className={styles.primaryButton}
-                                    type="button"
-                                    onClick={handleJoinRoom}
-                                    disabled={joinLoading}
-                                >
-                                    {joinLoading ? "Joining..." : "Join Room"}
-                                </button>
-                                {joinError && (
-                                    <div style={{ marginTop: 6, color: "crimson", fontSize: 12 }}>{joinError}</div>
-                                )}
-                            </div>
-                        )}
-
+                    <div
+                        className={`${styles.membersContent} ${!isMember ? styles.blurred : ""}`}
+                        aria-hidden={!isMember}
+                    >
                         {members.length === 0 ? (
                             <div style={{ textAlign: "center", opacity: 0.8 }}>No members yet</div>
                         ) : (
@@ -187,115 +174,140 @@ export default function RoomDashboardPage() {
                         )}
                     </div>
 
-
-
-                    <div className={styles.activityArea}>
-
-
-                        {isActivityRunning && !isActivityFinished && (
-                            <>
-                                <div className={styles.smallNote}>Activity</div>
-
-                                <div style={{ marginTop: 6, fontWeight: 700, fontSize: 16 }}>
-                                    {room?.activity.activity_name}
+                    {!isMember && (
+                        <div className={styles.membersOverlay}>
+                            <div className={styles.membersOverlayCard}>
+                                <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                                    Join to view members
                                 </div>
-
-                                <div style={{ marginTop: 6, opacity: 0.85, fontSize: 13 }}>
-                                    Phase: {room?.activity.phase_name} (
-                                    {(room?.activity.phase_index ?? 0) + 1}/
-                                    {room?.activity.total_phases})
+                                <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 12 }}>
+                                    You need to join this room before you can see who&apos;s inside.
                                 </div>
 
                                 <button
                                     className={styles.primaryButton}
                                     type="button"
-                                    style={{ marginTop: 12 }}
-                                    onClick={() => navigate(`/room/${code}/activity`)}
+                                    onClick={handleJoinRoom}
+                                    disabled={joinLoading}
                                 >
-                                    Enter Activity Workspace →
-                                </button>
-                            </>
-                        )}
-
- 
-                        {isActivityRunning && isActivityFinished && (
-                            <>
-                                <div className={styles.smallNote}>Activity finished</div>
-
-                                <div style={{ marginTop: 6, fontWeight: 700 }}>
-                                    {room?.activity.activity_name}
-                                </div>
-
-                                <button
-                                    className={styles.primaryButton}
-                                    type="button"
-                                    style={{ marginTop: 12 }}
-                                    onClick={() => navigate(`/room/${code}/summary`)}
-                                >
-                                    View Session Summary
+                                    {joinLoading ? "Joining..." : "Join Room"}
                                 </button>
 
-                                <button
-                                    className={styles.primaryButton}
-                                    type="button"
-                                    style={{ marginTop: 12 }}
-                                    onClick={() => navigate(`/room/${code}/activities`)}
-                                >
-                                    Select New Activity
-                                </button>
-                            </>
-                        )}
+                                {joinError && <div className={styles.errorMessage}>{joinError}</div>}
+                            </div>
+                        </div>
+                    )}
+                </div>
 
 
-                        {!isActivityRunning && (
-                            <>
-                                {!room?.selected_activity ? (
-                                    <>
-                                        <div className={styles.smallNote}>No activity selected</div>
+
+                <div className={styles.activityArea}>
+
+
+                    {isActivityRunning && !isActivityFinished && (
+                        <>
+                            <div className={styles.smallNote}>Activity</div>
+
+                            <div style={{ marginTop: 6, fontWeight: 700, fontSize: 16 }}>
+                                {room?.activity.activity_name}
+                            </div>
+
+                            <div style={{ marginTop: 6, opacity: 0.85, fontSize: 13 }}>
+                                Phase: {room?.activity.phase_name} (
+                                {(room?.activity.phase_index ?? 0) + 1}/
+                                {room?.activity.total_phases})
+                            </div>
+
+                            <button
+                                className={styles.primaryButton}
+                                type="button"
+                                style={{ marginTop: 12 }}
+                                onClick={() => navigate(`/room/${code}/activity`)}
+                            >
+                                Enter Activity Workspace →
+                            </button>
+                        </>
+                    )}
+
+
+                    {isActivityRunning && isActivityFinished && (
+                        <>
+                            <div className={styles.smallNote}>Activity finished</div>
+
+                            <div style={{ marginTop: 6, fontWeight: 700 }}>
+                                {room?.activity.activity_name}
+                            </div>
+
+                            <button
+                                className={styles.primaryButton}
+                                type="button"
+                                style={{ marginTop: 12 }}
+                                onClick={() => navigate(`/room/${code}/summary`)}
+                            >
+                                View Session Summary
+                            </button>
+
+                            <button
+                                className={styles.primaryButton}
+                                type="button"
+                                style={{ marginTop: 12 }}
+                                onClick={() => navigate(`/room/${code}/activities`)}
+                            >
+                                Select New Activity
+                            </button>
+                        </>
+                    )}
+
+
+                    {!isActivityRunning && (
+                        <>
+                            {!room?.selected_activity ? (
+                                <>
+                                    <div className={styles.smallNote}>No activity selected</div>
+                                    <button
+                                        className={styles.primaryButton}
+                                        type="button"
+                                        onClick={() => navigate(`/room/${code}/activities`)}
+                                    >
+                                        Select Activity
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className={styles.smallNote}>Selected activity</div>
+
+                                    <div style={{ marginTop: 6, fontWeight: 700, fontSize: 16 }}>
+                                        {room.selected_activity.name}
+                                    </div>
+
+                                    <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                                        <button
+                                            className={styles.primaryButton}
+                                            type="button"
+                                            onClick={startActivity}
+                                        >
+                                            Start Activity
+                                        </button>
+
                                         <button
                                             className={styles.primaryButton}
                                             type="button"
                                             onClick={() => navigate(`/room/${code}/activities`)}
                                         >
-                                            Select Activity
+                                            Change
                                         </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className={styles.smallNote}>Selected activity</div>
-
-                                        <div style={{ marginTop: 6, fontWeight: 700, fontSize: 16 }}>
-                                            {room.selected_activity.name}
-                                        </div>
-
-                                        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                                            <button
-                                                className={styles.primaryButton}
-                                                type="button"
-                                                onClick={startActivity}
-                                            >
-                                                Start Activity
-                                            </button>
-
-                                            <button
-                                                className={styles.primaryButton}
-                                                type="button"
-                                                onClick={() => navigate(`/room/${code}/activities`)}
-                                            >
-                                                Change
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-
-
-
-                    {error && <div className={styles.error}>{error}</div>}
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
                 </div>
+
+
+
+
+                {error && <div className={styles.error}>{error}</div>}
             </div>
-        );
-    }
+        </div>
+    );
+}
