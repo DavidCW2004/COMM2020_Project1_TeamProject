@@ -137,8 +137,13 @@ def messages(request):
         check_unanswered_question_rule(room, phase_index=phase_index)
 
         posts_qs = Post.objects.filter(room=room, phase_index=phase_index, activity_run_id=room.activity_run_id).order_by("created_at")
-        interventions_qs = Intervention.objects.filter(room=room, phase_index=phase_index, activity_run_id=room.activity_run_id).order_by("created_at")
-
+        interventions_qs = Intervention.objects.filter(
+            room=room,
+            phase_index=phase_index,
+            activity_run_id=room.activity_run_id,
+            recipient=request.user, 
+        ).order_by("created_at")
+                
         messages_data = []
 
         for post in posts_qs:
