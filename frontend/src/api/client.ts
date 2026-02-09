@@ -79,7 +79,7 @@ export type RoomListItem = {
 };
 
 export async function createTempAccount(displayName: string, role: "learner" | "facilitator") {
-	const url = `${API_BASE_URL}/api/temp-login/`;
+	const url = `${API_BASE_URL}api/temp-login/`;
 	console.log("Fetching:", url);
 
 	const response = await fetch(url, {
@@ -109,7 +109,7 @@ export async function createTempAccount(displayName: string, role: "learner" | "
 
 
 export async function fetchMessages(roomCode: string) {
-	const response = await fetch(`${API_BASE_URL}/api/messages/?room=${encodeURIComponent(roomCode)}`, {
+	const response = await fetch(`${API_BASE_URL}api/messages/?room=${encodeURIComponent(roomCode)}`, {
 		method: "GET",
 		credentials: "include",
 	});
@@ -122,7 +122,7 @@ export async function fetchMessages(roomCode: string) {
 }
 
 export async function postMessage(roomCode: string, content: string) {
-	const response = await fetch(`${API_BASE_URL}/api/messages/?room=${encodeURIComponent(roomCode)}`, {
+	const response = await fetch(`${API_BASE_URL}api/messages/?room=${encodeURIComponent(roomCode)}`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -140,7 +140,7 @@ export async function postMessage(roomCode: string, content: string) {
 }
 
 export async function createRoom(name: string) {
-	const response = await fetch(`${API_BASE_URL}/api/rooms/`, {
+	const response = await fetch(`${API_BASE_URL}api/rooms/`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -158,7 +158,7 @@ export async function createRoom(name: string) {
 }
 
 export async function joinRoom(code: string) {
-	const response = await fetch(`${API_BASE_URL}/api/rooms/`, {
+	const response = await fetch(`${API_BASE_URL}api/rooms/`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
@@ -177,7 +177,7 @@ export async function joinRoom(code: string) {
 
 
 export async function fetchRoom(code: string) {
-	const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/`, {
+	const res = await fetch(`${API_BASE_URL}api/rooms/${encodeURIComponent(code)}/`, {
 		method: "GET",
 		credentials: "include",
 	});
@@ -191,7 +191,7 @@ export async function fetchRoom(code: string) {
 }
 
 export async function fetchRoomMembers(code: string) {
-	const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/members/`, {
+	const res = await fetch(`${API_BASE_URL}api/rooms/${encodeURIComponent(code)}/members/`, {
 		method: "GET",
 		credentials: "include",
 	});
@@ -206,7 +206,7 @@ export async function fetchRoomMembers(code: string) {
 
 export async function startRoomActivity(code: string): Promise<void> {
 	const res = await fetch(
-		`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/start-activity/`,
+		`${API_BASE_URL}api/rooms/${encodeURIComponent(code)}/start-activity/`,
 		{
 			method: "POST",
 			credentials: "include",
@@ -223,7 +223,7 @@ export async function startRoomActivity(code: string): Promise<void> {
 export async function fetchSessionSummary(code: string, activityRunId?: string) {
 	const params = activityRunId ? `?activity_run_id=${activityRunId}` : "";
 	const res = await fetch(
-		`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/${params}`,
+		`${API_BASE_URL}api/rooms/${encodeURIComponent(code)}/summary/${params}`,
 		{
 			method: "GET",
 			credentials: "include",
@@ -240,7 +240,7 @@ export async function fetchSessionSummary(code: string, activityRunId?: string) 
 
 export async function exportSummaryPDF(code: string): Promise<Blob> {
 	const res = await fetch(
-		`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/export/`,
+		`${API_BASE_URL}api/rooms/${encodeURIComponent(code)}/summary/export/`,
 		{
 			method: "GET",
 			credentials: "include",
@@ -260,7 +260,7 @@ function buildError(detail: any, fallback: string) {
 }
 
 export async function fetchFacilitatorDashboardStats() {
-	const res = await fetch(`${API_BASE_URL}/api/facilitator/dashboard/`, {
+	const res = await fetch(`${API_BASE_URL}api/facilitator/dashboard/`, {
 		method: "GET",
 		credentials: "include",
 	});
@@ -274,7 +274,7 @@ export async function fetchFacilitatorDashboardStats() {
 }
 
 export async function fetchFacilitatorActivities() {
-	const res = await fetch(`${API_BASE_URL}/api/facilitator/activities/`, {
+	const res = await fetch(`${API_BASE_URL}api/facilitator/activities/`, {
 		method: "GET",
 		credentials: "include",
 	});
@@ -288,18 +288,18 @@ export async function fetchFacilitatorActivities() {
 }
 
 export async function createFacilitatorActivity(payload: any) {
-	const url = `${API_BASE_URL}/api/facilitator/activities/`;
+	const url = `${API_BASE_URL}api/facilitator/activities/`;
 	return authedJson(url, { method: "POST", body: JSON.stringify(payload) });
 }
 
 
 export async function updateFacilitatorActivity(id: number | string, payload: any) {
-	const url = `${API_BASE_URL}/api/facilitator/activities/${id}/`;
+	const url = `${API_BASE_URL}api/facilitator/activities/${id}/`;
 	return authedJson(url, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export async function fetchFacilitatorSessionSummary(roomCode: string, activityRunId?: string) {
-	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
+	const base = `${API_BASE_URL}api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
 	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
 
 	const res = await fetch(url, { method: "GET", credentials: "include" });
@@ -313,7 +313,7 @@ export async function fetchFacilitatorSessionSummary(roomCode: string, activityR
 }
 
 export async function fetchFacilitatorRoomSummary(roomCode: string, activityRunId?: string) {
-	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
+	const base = `${API_BASE_URL}api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
 	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
 
 	const res = await fetch(url, { method: "GET", credentials: "include" });
@@ -327,7 +327,7 @@ export async function fetchFacilitatorRoomSummary(roomCode: string, activityRunI
 }
 
 export async function regenerateFacilitatorRoomSummary(roomCode: string, activityRunId?: string) {
-	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
+	const base = `${API_BASE_URL}api/facilitator/room/${encodeURIComponent(roomCode)}/summary/`;
 	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
 
 	const csrf = getCookie("csrftoken");
@@ -352,7 +352,7 @@ export async function regenerateFacilitatorRoomSummary(roomCode: string, activit
 
 
 export async function ensureCsrfCookie() {
-	await fetch(`${API_BASE_URL}/api/csrf/`, {
+	await fetch(`${API_BASE_URL}api/csrf/`, {
 		method: "GET",
 		credentials: "include",
 	});
@@ -368,7 +368,7 @@ export async function downloadRoomSummaryPDF(roomCode: string): Promise<Blob> {
 }
 
 export async function exportFacilitatorSummaryPDF(roomCode: string, activityRunId?: string): Promise<Blob> {
-	const base = `${API_BASE_URL}/api/facilitator/room/${encodeURIComponent(roomCode)}/summary/pdf/`;
+	const base = `${API_BASE_URL}api/facilitator/room/${encodeURIComponent(roomCode)}/summary/pdf/`;
 	const url = activityRunId ? `${base}?activity_run_id=${encodeURIComponent(activityRunId)}` : base;
 
 	const res = await fetch(url, { method: "GET", credentials: "include" });
@@ -403,12 +403,12 @@ async function authedJson(url: string, init: RequestInit = {}) {
 }
 
 export async function deleteFacilitatorActivity(id: number): Promise<void> {
-	const url = `${API_BASE_URL}/api/facilitator/activities/${id}/`;
+	const url = `${API_BASE_URL}api/facilitator/activities/${id}/`;
 	await authedJson(url, { method: "DELETE" });
 }
 
 export async function fetchRooms(): Promise<RoomListItem[]> {
-	const res = await fetch(`${API_BASE_URL}/api/rooms/`, {
+	const res = await fetch(`${API_BASE_URL}api/rooms/`, {
 		method: "GET",
 		credentials: "include",
 	});
