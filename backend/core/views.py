@@ -1,4 +1,5 @@
 import json
+from urllib import request
 
 from django.contrib.auth import login
 from django.contrib.auth.models import User
@@ -46,7 +47,9 @@ def temp_login(request):
 	user.set_unusable_password()
 	user.save()
 
-	login(request, user)
+	login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+	request.session["temp_user_id"] = user.id
+	request.session.modified = True
 
 	return JsonResponse(
 		{
