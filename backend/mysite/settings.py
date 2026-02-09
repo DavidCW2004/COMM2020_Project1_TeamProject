@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'core',
     'message_board',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -116,6 +117,13 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+SESSION_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE = "None"
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
