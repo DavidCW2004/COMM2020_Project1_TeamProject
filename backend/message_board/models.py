@@ -77,12 +77,20 @@ class Intervention(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='interventions')
     rule_name = models.CharField(max_length=100)
     message = models.TextField()
-    explanation = models.TextField(blank=True)  
+    explanation = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     phase_index = models.IntegerField(null=True, blank=True)
     activity_run_id = models.UUIDField(null=True, blank=True, db_index=True)
 
-    
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="received_interventions",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+
     def __str__(self):
         return f'{self.agent.name} in {self.room.code}: {self.rule_name}'
 
