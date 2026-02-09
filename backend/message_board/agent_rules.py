@@ -31,24 +31,33 @@ def _agent(name: str, description: str) -> Agent:
     return a
 
 
-def _recent(room, agent: Agent, rule_name: str, since, phase_index):
+def _recent(room, agent: Agent, rule_name: str, since, phase_index, recipient=None):
     qs = Intervention.objects.filter(
         room=room,
         agent=agent,
         rule_name=rule_name,
         created_at__gte=since,
+        activity_run_id=room.activity_run_id,
     )
+
+    if recipient is None:
+        qs = qs.filter(recipient__isnull=True)
+    else:
+        qs = qs.filter(recipient=recipient)
 
     if phase_index is None:
         qs = qs.filter(phase_index__isnull=True)
     else:
         qs = qs.filter(phase_index=phase_index)
+
     return qs.exists()
 
 
-def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, phase_index):
+
+def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, phase_index, recipient=None):
     if not agent.is_active:
         return
+
     Intervention.objects.create(
         agent=agent,
         room=room,
@@ -56,9 +65,10 @@ def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, 
         message=message,
         explanation=explanation or "",
         phase_index=phase_index,
-        activity_run_id=room.activity_run_id, 
+        activity_run_id=room.activity_run_id,
+        recipient=recipient, 
     )
-
+    
 def check_individual_inactivity_rule(room, phase_index=None):
     now = timezone.now()
 
@@ -75,9 +85,9 @@ def check_individual_inactivity_rule(room, phase_index=None):
         ).values_list("author_id", flat=True).distinct()
     )
 
-    agent, _ = Agent.objects.get_or_create(
-        name="Facilitator Agent",
-        defaults={"description": "Encourages quieter members to participate.", "is_active": True},
+    agent = _agent(
+        "Facilitator Agent",
+        "Encourages quieter members to participate."
     )
 
     cooldown_since = now - INDIVIDUAL_INACTIVITY_COOLDOWN
@@ -86,34 +96,24 @@ def check_individual_inactivity_rule(room, phase_index=None):
     for user in members_qs:
         if user.id in active_user_ids:
             continue
+
         membership, _ = RoomMember.objects.get_or_create(room=room, user=user)
         if now - membership.joined_at < JOIN_GRACE_PERIOD:
             continue
 
         rule_name = f"individual_inactivity:user={user.id}"
 
-        recent = Intervention.objects.filter(
-            agent=agent,
-            room=room,
-            rule_name=rule_name,
-            created_at__gte=cooldown_since,
-        )
-        if phase_index is None:
-            recent = recent.filter(phase_index__isnull=True)
-        else:
-            recent = recent.filter(phase_index=phase_index)
-
-        if recent.exists():
+        if _recent(room, agent, rule_name, cooldown_since, phase_index, recipient=user):
             continue
 
-        Intervention.objects.create(
-            agent=agent,
+        _create(
             room=room,
+            agent=agent,
             rule_name=rule_name,
             message=f"Hi {user.first_name or user.username} — we’d love your thoughts when you’re ready.",
             explanation=f"{user.username} hasn’t posted in the last {INDIVIDUAL_INACTIVITY_THRESHOLD.seconds // 60} minutes (this phase).",
             phase_index=phase_index,
-            activity_run_id=room.activity_run_id,
+            recipient=user,
         )
         triggered = True
 
@@ -144,7 +144,7 @@ def check_equity_rule(room, phase_index=None) -> bool:
             continue
 
         rule_name = f"unequal_participation:user={member.id}"
-        if _recent(room, agent, rule_name, cooldown_since, phase_index):
+        if _recent(room, agent, rule_name, cooldown_since, phase_index, recipient=member):
             continue
 
         explanation = (
@@ -153,7 +153,7 @@ def check_equity_rule(room, phase_index=None) -> bool:
         )
         message = f"{member.first_name or member.username}, your perspective would be really valuable here — want to jump in?"
 
-        _create(room, agent, rule_name, message, explanation, phase_index)
+        _create(room, agent, rule_name, message, explanation, phase_index, recipient=member)
         triggered = True
 
     return triggered
@@ -192,10 +192,7 @@ def check_evidence_rule(room, post) -> bool:
     if not message_lacks_evidence(post.content):
         return False
 
-    agent = _agent(
-        "Socratic Agent",
-        "Encourages evidence-based reasoning and clearer support for claims."
-    )
+    agent = _agent("Socratic Agent", "Encourages evidence-based reasoning and clearer support for claims.")
 
     state, _ = EvidenceNudgeState.objects.get_or_create(
         room=room,
@@ -213,15 +210,12 @@ def check_evidence_rule(room, post) -> bool:
     if not (due_by_count or due_by_time):
         state.save(update_fields=["flagged_count"])
         return False
+
     state.last_nudged_at = now
     state.save(update_fields=["flagged_count", "last_nudged_at"])
 
     rule_name = f"missing_evidence:user={post.author.id}"
-
-    explanation = (
-        "This message appears to make a claim without supporting evidence "
-        "(source, data, example, or clear reasoning)."
-    )
+    explanation = "This message appears to make a claim without supporting evidence (source, data, example, or clear reasoning)."
     message = (
         "Quick reminder: please add evidence or reasoning so others can evaluate the claim.\n\n"
         "Good options:\n"
@@ -238,6 +232,7 @@ def check_evidence_rule(room, post) -> bool:
         message=message,
         explanation=explanation,
         phase_index=post.phase_index,
+        recipient=post.author,
     )
 
     return True
@@ -259,13 +254,15 @@ def check_dominant_speaker_rule(room, phase_index=None) -> bool:
     rule_name = f"dominant_speaker:user={first_author.id}"
     cooldown_since = timezone.now() - DOMINANT_SPEAKER_COOLDOWN
 
-    if _recent(room, agent, rule_name, cooldown_since, phase_index):
+    if _recent(room, agent, rule_name, cooldown_since, phase_index, recipient=first_author):
         return False
 
     explanation = f"{first_author.username} has posted {DOMINANT_SPEAKER_THRESHOLD} consecutive messages. Encouraging turn-taking."
     message = "Let's pause and hear from others before continuing — collaborative learning works best when everyone contributes!"
 
-    _create(room, agent, rule_name, message, explanation, phase_index)
+    _create(room, agent, rule_name, message, explanation, phase_index, recipient=first_author)
+    return True
+
     return True
 
 
@@ -318,13 +315,13 @@ def check_short_message_rule(room, post) -> bool:
     rule_name = f"short_message:user={post.author.id}"
     cooldown_since = timezone.now() - SHORT_MESSAGE_COOLDOWN
 
-    if _recent(room, agent, rule_name, cooldown_since, post.phase_index):
+    if _recent(room, agent, rule_name, cooldown_since, post.phase_index, recipient=post.author):
         return False
 
     explanation = f"Message was very brief ({len(content)} characters). Encouraging more substantive contributions."
     message = "Quick responses are fine, but can you add a bit more detail or reasoning to help the discussion?"
 
-    _create(room, agent, rule_name, message, explanation, post.phase_index)
+    _create(room, agent, rule_name, message, explanation, post.phase_index, recipient=post.author)
     return True
 
 

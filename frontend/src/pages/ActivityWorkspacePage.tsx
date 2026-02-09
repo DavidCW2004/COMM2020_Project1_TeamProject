@@ -329,7 +329,6 @@ export default function ActivityWorkspacePage() {
                         }}
                         footer={
                             <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-                                {/* Left side: toggle/back */}
                                 {!showWhy ? (
                                     <button
                                         type="button"
@@ -362,13 +361,11 @@ export default function ActivityWorkspacePage() {
                                     </button>
                                 )}
 
-                                {/* Right side: next/ok */}
                                 <div style={{ display: "flex", gap: 10 }}>
                                     {interventionQueue.length > 0 && (
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                // Close current; effect opens next
                                                 setActiveIntervention(null);
                                                 setShowWhy(false);
                                             }}
