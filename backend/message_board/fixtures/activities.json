@@ -44,27 +44,27 @@
       "phases": [
         {
           "name": "understand",
-          "prompt": "Identify the constraints of the sorting problem.",
-          "time_limit_minutes": 5,
+          "prompt": "Identify the constraints of the sorting problem. You have been given 500 books that you must sort in alphabetical order by title.",
+          "time_limit_minutes": 1,
           "turn_limit": 10
         },
         {
           "name": "propose",
           "prompt": "Suggest a specific algorithm (e.g., QuickSort vs MergeSort).",
-          "time_limit_minutes": 10,
+          "time_limit_minutes": 1,
           "turn_limit": 20
         },
         {
           "name": "critique",
-          "prompt": "Discuss the Big O complexity and memory trade-offs.",
-          "time_limit_minutes": 10,
+          "prompt": "Discuss the Big O complexity in a real life situation.",
+          "time_limit_minutes": 1,
           "turn_limit": 20
         },
         {
           "name": "decide",
           "prompt": "Select the final algorithm to implement.",
           "time_limit_minutes": 5,
-          "turn_limit": 10
+          "turn_limit": 1
         }
       ]
     }
