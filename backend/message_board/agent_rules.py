@@ -192,7 +192,7 @@ def check_evidence_rule(room, post) -> bool:
     if not message_lacks_evidence(post.content):
         return False
 
-    agent = _agent("Socratic Agent", "Encourages evidence-based reasoning and clearer support for claims.")
+    agent = _agent("Evidence Agent", "Encourages evidence-based reasoning and clearer support for claims.")
 
     state, _ = EvidenceNudgeState.objects.get_or_create(
         room=room,
