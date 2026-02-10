@@ -467,3 +467,33 @@
     backdrop-filter: blur(4px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 }
+
+.privacyNotice {
+  margin: 6px auto 0; 
+  width: fit-content;  
+  text-align: center;   
+}
+
+.privacySummary {
+    cursor: pointer;
+    font-size: 0.72rem;
+    line-height: 1.1;
+    opacity: 0.75;
+    user-select: none;
+}
+
+.privacyBody {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    opacity: 0.75;
+    max-width: 240px;
+}
+
+.privacyNotice>summary {
+    list-style: none;
+}
+
+.privacyNotice>summary::-webkit-details-marker {
+    display: none;
+}
