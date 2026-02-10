@@ -92,6 +92,14 @@ export default function LoginPage() {
                             placeholder="e.g. student A"
                         />
 
+                        <details className={styles.privacyNotice}>
+                            <summary className={styles.privacySummary}>Data & privacy</summary>
+                            <div className={styles.privacyBody}>
+                                We store your display name and role to create a temporary account and let you join rooms.
+                                Avoid entering sensitive personal information.
+                            </div>
+                        </details>
+
 
 
                     </div>
