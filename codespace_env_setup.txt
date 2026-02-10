@@ -1,0 +1,7 @@
+This file is for executing the setup of the environment for codespace hosting.
+
+establish execution request:
+chmod +x setup_env.sh
+
+Run the script:
+source ./setup_env.sh
