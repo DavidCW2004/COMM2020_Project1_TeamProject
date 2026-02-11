@@ -17,6 +17,7 @@ type Member = {
 export default function RoomDashboardPage() {
 
     const pollRef = useRef<number | null>(null);
+    const autoJoinRef = useRef(false);
 
     const { code } = useParams<{ code: string }>();
 
@@ -25,6 +26,7 @@ export default function RoomDashboardPage() {
     const [error, setError] = useState<string | null>(null);
     const [joinError, setJoinError] = useState<string | null>(null);
     const [joinLoading, setJoinLoading] = useState(false);
+    const [joinedOnce, setJoinedOnce] = useState(false);
 
     const isActivityRunning = room?.activity?.is_running === true;
     const isActivityFinished = room?.activity?.finished === true;
@@ -44,11 +46,12 @@ export default function RoomDashboardPage() {
     }, []);
 
     const isMember = useMemo(() => {
+        if (typeof room?.is_member === "boolean") return room.is_member || joinedOnce;
         if (!currentUser) return false;
         const names = [currentUser.displayName, currentUser.username].filter(Boolean);
         if (names.length === 0) return false;
-        return members.some((m) => names.includes(m.name));
-    }, [currentUser, members]);
+        return joinedOnce || members.some((m) => names.includes(m.name));
+    }, [currentUser, members, room?.is_member, joinedOnce]);
 
     useEffect(() => {
         if (!code) return;
@@ -67,6 +70,34 @@ export default function RoomDashboardPage() {
         const id = window.setInterval(loadRoom, 2000);
         return () => window.clearInterval(id);
     }, [code]);
+
+    useEffect(() => {
+        if (!code) return;
+        if (!room) return;
+        if (isMember) return;
+        if (room.is_private) return;
+        if (autoJoinRef.current) return;
+
+        autoJoinRef.current = true;
+
+        const doJoin = async () => {
+            try {
+                setJoinError(null);
+                setJoinLoading(true);
+                await joinRoom(code);
+                const memberData = await fetchRoomMembers(code);
+                setMembers(memberData);
+                setJoinedOnce(true);
+            } catch (err) {
+                setJoinError(err instanceof Error ? err.message : "Failed to join room");
+                autoJoinRef.current = false;
+            } finally {
+                setJoinLoading(false);
+            }
+        };
+
+        void doJoin();
+    }, [code, room, isMember]);
 
     useEffect(() => {
         if (!code) return;
@@ -116,7 +147,6 @@ export default function RoomDashboardPage() {
 
     async function handleJoinRoom() {
         if (!code) return;
-        setJoinLoading(true);
         setJoinError(null);
 
         try {
@@ -127,10 +157,13 @@ export default function RoomDashboardPage() {
                 return;
             }
 
+            setJoinLoading(true);
+
             await joinRoom(code, needsPassword ? joinPassword : undefined);
 
             const memberData = await fetchRoomMembers(code);
             setMembers(memberData);
+            setJoinedOnce(true);
 
             setJoinPassword("");
         } catch (err) {
@@ -171,16 +204,9 @@ export default function RoomDashboardPage() {
                         )}
                     </div>
 
-                    {!isMember && (
+                    {room && !isMember && (
                         <div className={styles.membersOverlay}>
                             <div className={styles.membersOverlayCard}>
-                                <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                                    Join to view members
-                                </div>
-                                <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 12 }}>
-                                    You need to join this room before you can see who&apos;s inside.
-                                </div>
-
                                 {room?.is_private && (
                                     <div style={{ width: "100%", marginBottom: 10 }}>
                                         <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 8 }}>
