@@ -20,6 +20,8 @@ export type Message = {
 export type Room = {
 	code: string;
 	name: string;
+	is_private: boolean;
+	created_by: { id: number; name: string } | null;
 	selected_activity: { id: number; name: string } | null;
 	activity: {
 		is_running: boolean;
@@ -139,14 +141,18 @@ export async function postMessage(roomCode: string, content: string) {
 	return (await response.json()) as Message;
 }
 
-export async function createRoom(name: string) {
+export async function createRoom(name: string, is_private?: boolean, password?: string) {
+	const body: any = { action: "create", name };
+	if (is_private) {
+		body.is_private = true;
+		body.password = password ?? "";
+	}
+
 	const response = await fetch(`${API_BASE_URL}api/rooms/`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
+		headers: { "Content-Type": "application/json" },
 		credentials: "include",
-		body: JSON.stringify({ action: "create", name }),
+		body: JSON.stringify(body),
 	});
 
 	if (!response.ok) {
@@ -154,17 +160,18 @@ export async function createRoom(name: string) {
 		throw new Error(error.detail || "Failed to create room");
 	}
 
-	return (await response.json()) as { code: string; name: string };
+	return (await response.json()) as { code: string; name: string; is_private?: boolean };
 }
 
-export async function joinRoom(code: string) {
+export async function joinRoom(code: string, password?: string) {
+	const body: any = { action: "join", code };
+	if (password && password.trim()) body.password = password.trim();
+
 	const response = await fetch(`${API_BASE_URL}api/rooms/`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
+		headers: { "Content-Type": "application/json" },
 		credentials: "include",
-		body: JSON.stringify({ action: "join", code }),
+		body: JSON.stringify(body),
 	});
 
 	if (!response.ok) {
@@ -172,10 +179,8 @@ export async function joinRoom(code: string) {
 		throw new Error(error.detail || "Failed to join room");
 	}
 
-	return (await response.json()) as { code: string; name: string };
+	return (await response.json()) as { code: string; name: string; is_private?: boolean };
 }
-
-
 export async function fetchRoom(code: string) {
 	const res = await fetch(`${API_BASE_URL}api/rooms/${encodeURIComponent(code)}/`, {
 		method: "GET",

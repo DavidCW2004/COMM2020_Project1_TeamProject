@@ -1,25 +1,10 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styles from "../styles/Login.module.css";
+import modalStyles from "../styles/Modal.module.css";
 
-import { fetchRoom, fetchRoomMembers, joinRoom, startRoomActivity } from "../api/client";
+import { fetchRoom, fetchRoomMembers, joinRoom, startRoomActivity, type Room } from "../api/client";
 
-type Room = {
-    code: string;
-    name: string;
-    selected_activity: { id: number; name: string } | null;
-    activity: {
-        is_running: boolean;
-        finished: boolean;
-        activity_id: number | null;
-        activity_name: string | null;
-        phase_index?: number | null;
-        phase_name?: string | null;
-        phase_prompt?: string | null;
-        phase_ends_at?: string | null;
-        total_phases?: number | null;
-    };
-};
 
 
 type Member = {
@@ -43,6 +28,7 @@ export default function RoomDashboardPage() {
 
     const isActivityRunning = room?.activity?.is_running === true;
     const isActivityFinished = room?.activity?.finished === true;
+    const [joinPassword, setJoinPassword] = useState("");
 
 
     const navigate = useNavigate();
@@ -132,10 +118,21 @@ export default function RoomDashboardPage() {
         if (!code) return;
         setJoinLoading(true);
         setJoinError(null);
+
         try {
-            await joinRoom(code);
+            const needsPassword = !!room?.is_private;
+
+            if (needsPassword && !joinPassword.trim()) {
+                setJoinError("This room is private. Please enter the password.");
+                return;
+            }
+
+            await joinRoom(code, needsPassword ? joinPassword : undefined);
+
             const memberData = await fetchRoomMembers(code);
             setMembers(memberData);
+
+            setJoinPassword("");
         } catch (err) {
             setJoinError(err instanceof Error ? err.message : "Failed to join room");
         } finally {
@@ -183,6 +180,27 @@ export default function RoomDashboardPage() {
                                 <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 12 }}>
                                     You need to join this room before you can see who&apos;s inside.
                                 </div>
+
+                                {room?.is_private && (
+                                    <div style={{ width: "100%", marginBottom: 10 }}>
+                                        <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 8 }}>
+                                            This room is private — enter the password to join.
+                                        </div>
+
+                                        <input
+                                            className={modalStyles.input} 
+                                            type="password"
+                                            value={joinPassword}
+                                            onChange={(e) => setJoinPassword(e.target.value)}
+                                            placeholder="Room password"
+                                            disabled={joinLoading}
+                                            autoComplete="off"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" && !joinLoading) handleJoinRoom();
+                                            }}
+                                        />
+                                    </div>
+                                )}
 
                                 <button
                                     className={styles.primaryButton}

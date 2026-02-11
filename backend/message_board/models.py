@@ -8,6 +8,18 @@ class Room(models.Model):
     code = models.CharField(max_length=12, unique=True)
     name = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_rooms",
+    )
+
+    is_private = models.BooleanField(default=False)
+    password_hash = models.CharField(max_length=128, blank=True, default="") 
+
     activity = models.ForeignKey('Activity', on_delete=models.CASCADE, null=True, blank=True, related_name='rooms')
     current_phase = models.CharField(max_length=50, default='understand', choices=[
         ("understand", "Understand"),
@@ -22,7 +34,6 @@ class Room(models.Model):
     activity_started_at = models.DateTimeField(null=True, blank=True)
     activity_is_running = models.BooleanField(default=False)
     activity_run_id = models.UUIDField(null=True, blank=True, editable=False)
-
 
     def __str__(self):
         return self.code

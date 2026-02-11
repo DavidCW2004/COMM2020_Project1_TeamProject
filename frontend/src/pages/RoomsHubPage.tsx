@@ -1,15 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "../styles/Login.module.css";
 import Modal from "../components/Modal";
-import { createRoom, joinRoom, fetchRooms, type RoomListItem } from "../api/client";
+import { createRoom, joinRoom, fetchRooms, type RoomListItem, fetchRoom } from "../api/client";
 import modalStyles from "../styles/Modal.module.css";
 import { useNavigate } from "react-router-dom";
 
-type Room = {
-    id: string;
-    name: string;
-    code: string;
-};
 
 export default function RoomsHubPage() {
 
@@ -25,6 +20,13 @@ export default function RoomsHubPage() {
     const [createName, setCreateName] = useState("");
     const [joinCode, setJoinCode] = useState("");
 
+    const [createPrivate, setCreatePrivate] = useState(false);
+    const [createPassword, setCreatePassword] = useState("");
+
+    const [joinPassword, setJoinPassword] = useState("");
+    const [joinNeedsPassword, setJoinNeedsPassword] = useState(false);
+    const [joinChecking, setJoinChecking] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [modalError, setModalError] = useState<string | null>(null);
 
@@ -36,24 +38,33 @@ export default function RoomsHubPage() {
         setCreateOpen(false);
         setModalError(null);
         setLoading(false);
+        setCreatePrivate(false);
+        setCreatePassword("");
     };
 
     const closeJoin = () => {
         setJoinOpen(false);
         setModalError(null);
         setLoading(false);
+        setJoinPassword("");
+        setJoinNeedsPassword(false);
     };
 
     const openCreate = () => {
         setModalError(null);
         setJoinOpen(false);
         setCreateOpen(true);
+        setCreatePrivate(false);
+        setCreatePassword("");
     };
 
     const openJoin = () => {
         setModalError(null);
         setCreateOpen(false);
         setJoinOpen(true);
+        setJoinCode("");
+        setJoinPassword("");
+        setJoinNeedsPassword(false);
     };
 
     const handleCreateRoom = async () => {
@@ -63,20 +74,23 @@ export default function RoomsHubPage() {
             return;
         }
 
+        if (createPrivate && createPassword.trim().length < 4) {
+            setModalError("Password must be at least 4 characters.");
+            return;
+        }
+
         setLoading(true);
         setModalError(null);
 
         try {
-            const room = await createRoom(name);
-
+            const room = await createRoom(name, createPrivate, createPrivate ? createPassword : undefined);
 
             setCreateOpen(false);
-
-
             setCreatedRoom({ code: room.code, name: room.name || name });
             setCreateSuccessOpen(true);
-
             setCreateName("");
+            setCreatePrivate(false);
+            setCreatePassword("");
             setModalError(null);
         } catch (err) {
             setModalError(err instanceof Error ? err.message : "Failed to create room");
@@ -86,19 +100,21 @@ export default function RoomsHubPage() {
     };
 
     const handleJoinRoom = async () => {
-        const code = joinCode.trim();
+        const code = joinCode.trim().toUpperCase();
         if (!code) return;
+
+        if (joinNeedsPassword && !joinPassword.trim()) {
+            setModalError("Password is required for this room.");
+            return;
+        }
 
         setLoading(true);
         setModalError(null);
 
         try {
-            const room = await joinRoom(code);
-
+            const room = await joinRoom(code, joinNeedsPassword ? joinPassword : undefined);
             setJoinOpen(false);
-
             navigate(`/room/${room.code}`);
-
         } catch (err) {
             setModalError(err instanceof Error ? err.message : "Failed to join room");
         } finally {
@@ -132,6 +148,42 @@ export default function RoomsHubPage() {
         if (!q) return rooms;
         return rooms.filter((r) => `${r.name} ${r.code}`.toLowerCase().includes(q));
     }, [rooms, query]);
+
+    useEffect(() => {
+        if (!joinOpen) return;
+
+        const code = joinCode.trim().toUpperCase();
+        if (code.length < 4) {
+            setJoinNeedsPassword(false);
+            setJoinPassword("");
+            setModalError(null);
+            return;
+        }
+
+        let cancelled = false;
+        setJoinChecking(true);
+        setModalError(null);
+
+        const t = window.setTimeout(async () => {
+            try {
+                const room = await fetchRoom(code);
+                if (cancelled) return;
+                const isPrivate = !!(room as any).is_private;
+                setJoinNeedsPassword(isPrivate);
+                if (!isPrivate) setJoinPassword("");
+            } catch (e) {
+                if (cancelled) return;
+                setJoinNeedsPassword(false);
+            } finally {
+                if (!cancelled) setJoinChecking(false);
+            }
+        }, 400);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(t);
+        };
+    }, [joinCode, joinOpen]);
 
     return (
         <div className={styles.page}>
@@ -185,9 +237,9 @@ export default function RoomsHubPage() {
                                             alignItems: "center",
                                             justifyContent: "space-between",
                                             gap: 12,
-                                            width: "100%",         
+                                            width: "100%",
                                             boxSizing: "border-box",
-                                            overflow: "hidden",    
+                                            overflow: "hidden",
                                         }}
                                     >
                                         <div style={{ minWidth: 0, flex: "1 1 auto" }}>
@@ -222,7 +274,7 @@ export default function RoomsHubPage() {
                                                 type="button"
                                                 style={{
                                                     height: 32,
-                                                    width: 140,         
+                                                    width: 140,
                                                     maxWidth: "100%",
                                                     whiteSpace: "nowrap",
                                                 }}
@@ -277,6 +329,27 @@ export default function RoomsHubPage() {
                         disabled={loading}
                     />
                     {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+                        <input
+                            type="checkbox"
+                            checked={createPrivate}
+                            onChange={(e) => setCreatePrivate(e.target.checked)}
+                            disabled={loading}
+                        />
+                        Private room (requires password)
+                    </label>
+
+                    {createPrivate && (
+                        <input
+                            className={modalStyles.input}
+                            type="password"
+                            value={createPassword}
+                            onChange={(e) => setCreatePassword(e.target.value)}
+                            placeholder="Set a password"
+                            disabled={loading}
+                            style={{ marginTop: 10 }}
+                        />
+                    )}
                 </div>
             </Modal>
 
@@ -378,11 +451,28 @@ export default function RoomsHubPage() {
                     <input
                         className={modalStyles.input}
                         value={joinCode}
-                        onChange={(e) => setJoinCode(e.target.value)}
+                        onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                         placeholder="Room Code"
                         disabled={loading}
                     />
                     {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
+                    {joinChecking && (
+                        <div style={{ fontSize: 12, opacity: 0.75 }}>
+                            Checking room privacy…
+                        </div>
+                    )}
+
+                    {joinNeedsPassword && (
+                        <input
+                            className={modalStyles.input}
+                            type="password"
+                            value={joinPassword}
+                            onChange={(e) => setJoinPassword(e.target.value)}
+                            placeholder="Room password"
+                            disabled={loading}
+                            style={{ marginTop: 10 }}
+                        />
+                    )}
                 </div>
             </Modal>
 
