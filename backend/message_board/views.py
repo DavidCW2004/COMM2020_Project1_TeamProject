@@ -12,6 +12,7 @@ from .agent_rules import check_all_rules, check_individual_inactivity_rule, chec
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count
+from django.contrib.auth.hashers import make_password, check_password
 
 
 
@@ -68,17 +69,31 @@ def rooms(request):
         if not name:
             return JsonResponse({"detail": "name is required"}, status=400)
 
+        is_private = bool(payload.get("is_private", False))
+        password = (payload.get("password") or "").strip()
+
+        if is_private and len(password) < 4:
+            return JsonResponse({"detail": "password must be at least 4 characters for private rooms"}, status=400)
+
         code = get_random_string(6).upper()
         while Room.objects.filter(code=code).exists():
             code = get_random_string(6).upper()
 
-        room = Room.objects.create(code=code, name=name)
+        room = Room.objects.create(
+            code=code,
+            name=name,
+            created_by=request.user,
+            is_private=is_private,
+            password_hash=make_password(password) if is_private else "",
+        )
+
         room.members.add(request.user)
         RoomMember.objects.get_or_create(room=room, user=request.user)
 
         return JsonResponse({
             "code": room.code,
             "name": room.name,
+            "is_private": room.is_private,
             "members_count": room.members.count(),
         }, status=201)
 
@@ -92,6 +107,14 @@ def rooms(request):
         except Room.DoesNotExist:
             return JsonResponse({"detail": "Room not found"}, status=404)
 
+        if room.is_private:
+            password = (payload.get("password") or "").strip()
+            if not password:
+                return JsonResponse({"detail": "password is required for this room"}, status=400)
+
+            if not room.password_hash or not check_password(password, room.password_hash):
+                return JsonResponse({"detail": "incorrect password"}, status=403)
+
         already_member = room.members.filter(id=request.user.id).exists()
         room.members.add(request.user)
         RoomMember.objects.get_or_create(room=room, user=request.user)
@@ -99,6 +122,7 @@ def rooms(request):
         return JsonResponse({
             "code": room.code,
             "name": room.name,
+            "is_private": room.is_private,
             "joined": not already_member,
             "members_count": room.members.count(),
         }, status=200)
@@ -265,6 +289,8 @@ def room_detail(request, code):
             {"id": room.selected_activity.id, "name": room.selected_activity.name}
             if room.selected_activity else None
         ),
+        "is_private": room.is_private,
+        "created_by": (room.created_by.first_name or room.created_by.username) if room.created_by else None,
 
         "activity": {
             "is_running": state.get("is_running", False),
