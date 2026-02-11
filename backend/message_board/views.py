@@ -284,6 +284,7 @@ def room_detail(request, code):
     return JsonResponse({
         "code": room.code,
         "name": room.name,
+        "is_member": room.members.filter(id=request.user.id).exists(),
 
         "selected_activity": (
             {"id": room.selected_activity.id, "name": room.selected_activity.name}

@@ -20,6 +20,7 @@ export type Message = {
 export type Room = {
 	code: string;
 	name: string;
+	is_member?: boolean;
 	is_private: boolean;
 	created_by: { id: number; name: string } | null;
 	selected_activity: { id: number; name: string } | null;
@@ -148,12 +149,22 @@ export async function createRoom(name: string, is_private?: boolean, password?: 
 		body.password = password ?? "";
 	}
 
-	const response = await fetch(`${API_BASE_URL}api/rooms/`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		credentials: "include",
-		body: JSON.stringify(body),
-	});
+	let response: Response;
+	const controller = new AbortController();
+	const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+	try {
+		response = await fetch(`${API_BASE_URL}api/rooms/`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			credentials: "include",
+			body: JSON.stringify(body),
+			signal: controller.signal,
+		});
+	} catch {
+		throw new Error("Create room timed out. Is the backend running on port 8000?");
+	} finally {
+		window.clearTimeout(timeoutId);
+	}
 
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({}));
@@ -167,12 +178,22 @@ export async function joinRoom(code: string, password?: string) {
 	const body: any = { action: "join", code };
 	if (password && password.trim()) body.password = password.trim();
 
-	const response = await fetch(`${API_BASE_URL}api/rooms/`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		credentials: "include",
-		body: JSON.stringify(body),
-	});
+	let response: Response;
+	const controller = new AbortController();
+	const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+	try {
+		response = await fetch(`${API_BASE_URL}api/rooms/`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			credentials: "include",
+			body: JSON.stringify(body),
+			signal: controller.signal,
+		});
+	} catch {
+		throw new Error("Join timed out. Is the backend running on port 8000?");
+	} finally {
+		window.clearTimeout(timeoutId);
+	}
 
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({}));
