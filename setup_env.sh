@@ -38,6 +38,7 @@ python manage.py loaddata message_board/fixtures/activities.json
 echo "Creating Frontend .env file..."
 cd ../frontend
 echo "VITE_API_BASE_URL=/" > .env
+cd ../
 
 echo "------------------------------------------------"
 echo "✅ SETUP COMPLETE!"
