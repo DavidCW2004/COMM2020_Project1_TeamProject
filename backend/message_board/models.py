@@ -121,8 +121,6 @@ class EvidenceNudgeState(models.Model):
 
 
 class SessionSummary(models.Model):
-    """Stores computed session summaries for each activity run."""
-
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='summaries')
     activity_run_id = models.UUIDField(db_index=True)
     activity = models.ForeignKey(Activity, on_delete=models.SET_NULL, null=True)
@@ -144,3 +142,30 @@ class SessionSummary(models.Model):
 
     def __str__(self):
         return f'Summary for {self.room.code} - {self.activity_run_id}'
+
+
+class FinalAnswerSelection(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="final_answer_selections")
+    activity_run_id = models.UUIDField(db_index=True)
+    post = models.ForeignKey("Post", on_delete=models.CASCADE)
+    finalized_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("room", "activity_run_id")
+
+    def __str__(self):
+        return f'FinalAnswerSelection: {self.room.code} - {self.activity_run_id}'
+
+
+class FinalAnswerVote(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    activity_run_id = models.UUIDField(db_index=True)
+    post = models.ForeignKey("Post", on_delete=models.CASCADE, related_name="final_answer_votes")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("room", "activity_run_id", "user")
+
+    def __str__(self):
+        return f'FinalAnswerVote: {self.post_id} - {self.user_id}'

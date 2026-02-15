@@ -45,6 +45,22 @@ type MessagesResponse = {
     messages: MessageItem[];
 };
 
+type FinalAnswerPost = {
+    id: number;
+    content: string;
+    author: string;
+    created_at: string;
+    votes: number;
+    is_final: boolean;
+};
+
+type FinalAnswerState = {
+    majority_needed: number;
+    final_answer_post_id: number | null;
+    user_vote_post_id: number | null;
+    posts: FinalAnswerPost[];
+};
+
 function secondsLeft(iso?: string | null) {
     if (!iso) return null;
     const end = new Date(iso).getTime();
@@ -70,6 +86,9 @@ export default function ActivityWorkspacePage() {
 
     const [input, setInput] = useState("");
     const [timer, setTimer] = useState<number | null>(null);
+    const [finalAnswer, setFinalAnswer] = useState<FinalAnswerState | null>(null);
+    const [finalAnswerLoading, setFinalAnswerLoading] = useState(false);
+    const [finalAnswerError, setFinalAnswerError] = useState<string | null>(null);
 
     const seenInterventionsRef = useRef<Set<number>>(new Set());
     const [interventionQueue, setInterventionQueue] = useState<
@@ -123,6 +142,31 @@ export default function ActivityWorkspacePage() {
         }
 
         setTimer(secondsLeft(data.activity.phase_ends_at));
+    }
+
+    async function fetchFinalAnswer(activityRunId?: string | null) {
+        if (!code || !activityRunId) return;
+
+        try {
+            setFinalAnswerLoading(true);
+            setFinalAnswerError(null);
+            const params = new URLSearchParams({ activity_run_id: activityRunId });
+            const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/final-answer/?${params.toString()}`, {
+                credentials: "include",
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || "Failed to load final answer options");
+            }
+
+            const data = await res.json();
+            setFinalAnswer(data);
+        } catch (e: any) {
+            setFinalAnswerError(e.message ?? "Failed to load final answer options");
+        } finally {
+            setFinalAnswerLoading(false);
+        }
     }
 
     useEffect(() => {
@@ -182,6 +226,11 @@ export default function ActivityWorkspacePage() {
         return () => window.clearInterval(id);
     }, [activity?.phase_ends_at]);
 
+    useEffect(() => {
+        if (!activity?.finished || !activity.activity_run_id) return;
+        void fetchFinalAnswer(activity.activity_run_id);
+    }, [activity?.finished, activity?.activity_run_id]);
+
 
     async function sendMessage() {
         if (!code) return;
@@ -212,6 +261,32 @@ export default function ActivityWorkspacePage() {
             await fetchStateAndMessages();
         } catch (e: any) {
             setError(e.message ?? "Failed to send message");
+        }
+    }
+
+    async function handleVote(postId: number) {
+        if (!code || !activity?.activity_run_id) return;
+
+        try {
+            setFinalAnswerLoading(true);
+            setFinalAnswerError(null);
+            const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/final-answer/`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "vote", post_id: postId }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || "Failed to cast vote");
+            }
+
+            await fetchFinalAnswer(activity.activity_run_id);
+        } catch (e: any) {
+            setFinalAnswerError(e.message ?? "Failed to cast vote");
+        } finally {
+            setFinalAnswerLoading(false);
         }
     }
 
@@ -277,6 +352,71 @@ export default function ActivityWorkspacePage() {
                                 )}
                             </div>
                         ))}
+
+                        {activity?.finished && (
+                            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e0e0e0" }}>
+                                <div className={styles.membersHeading} style={{ marginBottom: 8, fontSize: 22 }}>
+                                    Choose Final Conclusion
+                                </div>
+
+                                {finalAnswerError && (
+                                    <div className={styles.error} style={{ marginBottom: 8 }}>{finalAnswerError}</div>
+                                )}
+
+                                {finalAnswerLoading && <div style={{ opacity: 0.8 }}>Loading options…</div>}
+
+                                {!finalAnswerLoading && finalAnswer?.posts?.length === 0 && (
+                                    <div style={{ opacity: 0.7, fontStyle: "italic" }}>
+                                        No messages were posted in the decide phase.
+                                    </div>
+                                )}
+
+                                {finalAnswer?.posts?.length ? (
+                                    <div style={{ display: "grid", gap: 10 }}>
+                                        {finalAnswer.posts.map((post) => {
+                                            const isUserVote = finalAnswer.user_vote_post_id === post.id;
+                                            const isFinal = finalAnswer.final_answer_post_id === post.id;
+
+                                            return (
+                                                <div
+                                                    key={post.id}
+                                                    style={{
+                                                        border: "1px solid #ddd",
+                                                        borderRadius: 6,
+                                                        padding: 10,
+                                                        background: isFinal ? "#e8f4e8" : "#fff",
+                                                    }}
+                                                >
+                                                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{post.author}</div>
+                                                    <div style={{ marginBottom: 8 }}>{post.content}</div>
+                                                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                                        <span style={{ fontSize: 13, opacity: 0.8 }}>
+                                                            {post.votes} / {finalAnswer.majority_needed || "majority"} votes
+                                                        </span>
+                                                        {!isFinal && (
+                                                            <button
+                                                                className={styles.primaryButton}
+                                                                type="button"
+                                                                style={{ height: 30, padding: "0 10px" }}
+                                                                onClick={() => handleVote(post.id)}
+                                                                disabled={finalAnswerLoading}
+                                                            >
+                                                                {isUserVote ? "Voted" : "Vote"}
+                                                            </button>
+                                                        )}
+                                                        {isFinal && (
+                                                            <span style={{ fontSize: 12, fontWeight: 700, color: "#2e7d32" }}>
+                                                                Finalized
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : null}
+                            </div>
+                        )}
                     </div>
 
                     <div style={{ display: "flex", gap: 10, padding: 12 }}>

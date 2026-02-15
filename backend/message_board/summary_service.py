@@ -1,9 +1,3 @@
-"""
-Summary generation service for session summaries.
-Uses template-based extraction (no AI) to identify decisions, action items,
-unanswered questions, and compute participation/quality metrics.
-"""
-
 import re
 from django.utils import timezone
 from .models import Post, Intervention, Room, SessionSummary
@@ -40,10 +34,6 @@ QUESTION_PATTERN = r"\?[\s]*$"
 
 
 def generate_summary(room: Room, activity_run_id) -> SessionSummary:
-    """
-    Main entry point to generate or update a session summary.
-    Computes all metrics and extracts content from posts/interventions.
-    """
     posts = Post.objects.filter(
         room=room,
         activity_run_id=activity_run_id
@@ -82,7 +72,6 @@ def generate_summary(room: Room, activity_run_id) -> SessionSummary:
 
 
 def _compute_participation(room, posts, activity_run_id):
-    """Compute per-user participation statistics."""
     members = room.members.all()
     member_stats = []
     total_posts = posts.count()
@@ -134,7 +123,6 @@ def _compute_participation(room, posts, activity_run_id):
 
 
 def _calculate_gini(values):
-    """Calculate Gini coefficient for distribution inequality (0 = equal, 1 = unequal)."""
     if not values or sum(values) == 0:
         return 0
     sorted_values = sorted(values)
@@ -146,7 +134,6 @@ def _calculate_gini(values):
 
 
 def _compute_process(posts, interventions, phases, room):
-    """Compute process metrics: time per phase, interventions by rule type."""
     phase_stats = []
 
     for idx, phase in enumerate(phases):
@@ -180,7 +167,6 @@ def _compute_process(posts, interventions, phases, room):
 
 
 def _compute_quality(posts, interventions, phases):
-    """Compute quality check flags based on rubric criteria."""
     flags = []
     total_posts = posts.count()
 
@@ -267,7 +253,6 @@ def _compute_quality(posts, interventions, phases):
 
 
 def _extract_content(posts, phases):
-    """Extract decisions, action items, and unanswered questions using regex patterns."""
     decisions = []
     action_items = []
     unanswered_questions = []
