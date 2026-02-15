@@ -4,31 +4,31 @@
     "pk": 99,
     "fields": {
       "name": "Quick Test Activity",
-      "description": "A fast activity for testing (10 sec phases).",
+      "description": "activity testing phases.",
       "activity_type": "problem-solving",
       "phases": [
         {
           "name": "understand",
-          "prompt": "Quick understand phase - post a message!",
-          "time_limit_minutes": 0.167,
+          "prompt": "phase1",
+          "time_limit_minutes": 0.333,
           "turn_limit": 10
         },
         {
           "name": "propose",
-          "prompt": "Quick propose phase - suggest something!",
-          "time_limit_minutes": 0.167,
+          "prompt": "phase2",
+          "time_limit_minutes": 0.333,
           "turn_limit": 10
         },
         {
           "name": "critique",
-          "prompt": "Quick critique phase - any feedback?",
-          "time_limit_minutes": 0.167,
+          "prompt": "phase3",
+          "time_limit_minutes": 0.333,
           "turn_limit": 10
         },
         {
           "name": "decide",
-          "prompt": "Quick decide phase - we decided to test!",
-          "time_limit_minutes": 0.167,
+          "prompt": "phase4",
+          "time_limit_minutes": 0.333,
           "turn_limit": 10
         }
       ]

@@ -6,7 +6,16 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
-from .models import Post, Room, Intervention, Activity, RoomMember, SessionSummary
+from .models import (
+    Post,
+    Room,
+    Intervention,
+    Activity,
+    RoomMember,
+    SessionSummary,
+    FinalAnswerSelection,
+    FinalAnswerVote,
+)
 from .serializers import PostSerializer, ActivitySerializer
 from .agent_rules import check_all_rules, check_individual_inactivity_rule, check_unanswered_question_rule, message_lacks_evidence
 from django.utils import timezone
@@ -461,14 +470,6 @@ def get_activity_state(room):
 
 @csrf_exempt
 def session_summary(request, code):
-    """
-    GET /api/rooms/<code>/summary/
-    Returns the session summary for the most recent completed activity.
-
-    Query params:
-    - activity_run_id: (optional) Specific activity run to get summary for
-    - regenerate: (optional) If "true", regenerate the summary
-    """
     if request.method != "GET":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
@@ -518,6 +519,36 @@ def session_summary(request, code):
     user_role = request.user.last_name  # "learner" or "facilitator"
     is_facilitator = user_role == "facilitator"
 
+    final_answer = _get_final_answer(room, activity_run_id)
+    final_answer_votes = 0
+    if final_answer:
+        final_answer_votes = FinalAnswerVote.objects.filter(
+            room=room,
+            activity_run_id=activity_run_id,
+            post=final_answer.post,
+        ).count()
+
+    final_answer_data = None
+    if final_answer:
+        final_answer_data = {
+            "id": final_answer.post.id,
+            "content": final_answer.post.content,
+            "author": final_answer.post.author.first_name or final_answer.post.author.username,
+            "created_at": final_answer.post.created_at.isoformat(),
+            "finalized_at": final_answer.finalized_at.isoformat() if final_answer.finalized_at else None,
+            "votes": final_answer_votes,
+            "majority_needed": _get_majority_count(room),
+            "is_final": True,
+        }
+
+    final_outcome = summary.extracted_content.get("final_outcome")
+    if final_answer:
+        final_outcome = {
+            "content": final_answer.post.content,
+            "author": final_answer.post.author.first_name or final_answer.post.author.username,
+            "timestamp": final_answer.finalized_at.isoformat() if final_answer.finalized_at else None,
+        }
+
     # Build response with role-based filtering
     response_data = {
         "room_code": room.code,
@@ -532,21 +563,20 @@ def session_summary(request, code):
         "decisions": summary.extracted_content.get("decisions", []),
         "action_items": summary.extracted_content.get("action_items", []),
         "unanswered_questions": summary.extracted_content.get("unanswered_questions", []),
-        "final_outcome": summary.extracted_content.get("final_outcome"),
+        "final_outcome": final_outcome,
+        "final_answer": final_answer_data,
 
         # Participation view (visible to all)
         "participation": summary.participation_data,
 
-        # Process view (facilitator gets full details including interventions_by_rule)
         "process": summary.process_data if is_facilitator else {
             "phases": summary.process_data.get("phases", []),
             "total_duration_seconds": summary.process_data.get("total_duration_seconds", 0)
         },
 
-        # Quality checks (facilitator only)
+
         "quality": summary.quality_data if is_facilitator else None,
 
-        # Personal contribution (for learners only)
         "personal_contribution": _get_personal_contribution(
             summary.participation_data,
             request.user.id
@@ -559,7 +589,6 @@ def session_summary(request, code):
 
 
 def _get_personal_contribution(participation_data, user_id):
-    """Extract personal contribution stats for a specific user."""
     members = participation_data.get("members", [])
     for member in members:
         if member.get("user_id") == user_id:
@@ -572,13 +601,30 @@ def _get_personal_contribution(participation_data, user_id):
     return None
 
 
+def _get_majority_count(room):
+    members_count = room.members.count()
+    return (members_count // 2) + 1
+
+
+def _get_final_answer(room, activity_run_id):
+    return FinalAnswerSelection.objects.filter(
+        room=room,
+        activity_run_id=activity_run_id,
+    ).select_related("post", "post__author").first()
+
+
+def _get_decide_phase_index(room):
+    activity = room.selected_activity
+    if not activity or not activity.phases:
+        return None
+    for idx, phase in enumerate(activity.phases):
+        if str(phase.get("name", "")).strip().lower() == "decide":
+            return idx
+    return None
+
+
 @csrf_exempt
 def export_summary_pdf(request, code):
-    """
-    GET /api/rooms/<code>/summary/export/
-    Generates and returns a PDF of the session summary.
-    Facilitator-only endpoint.
-    """
     if request.method != "GET":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
@@ -605,6 +651,16 @@ def export_summary_pdf(request, code):
     if not activity_run_id:
         return JsonResponse({"detail": "No activity run found"}, status=404)
 
+    final_answer = _get_final_answer(room, activity_run_id)
+    if not final_answer:
+        return JsonResponse(
+            {
+                "detail": "Final answer not yet finalized",
+                "majority_needed": _get_majority_count(room),
+            },
+            status=400,
+        )
+
     # Get or generate summary
     try:
         summary = SessionSummary.objects.get(room=room, activity_run_id=activity_run_id)
@@ -614,11 +670,148 @@ def export_summary_pdf(request, code):
 
     # Generate PDF
     from .pdf_generator import generate_summary_pdf
-    pdf_content = generate_summary_pdf(summary, room)
+    pdf_content = generate_summary_pdf(summary, room, final_answer=final_answer)
 
     response = HttpResponse(pdf_content, content_type='application/pdf')
     filename = f"session_summary_{room.code}_{summary.created_at.strftime('%Y%m%d')}.pdf"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     return response
+
+
+@csrf_exempt
+def final_answer(request, code):
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    code = (code or "").strip().upper()
+    try:
+        room = Room.objects.get(code=code)
+    except Room.DoesNotExist:
+        return JsonResponse({"detail": "Room not found"}, status=404)
+
+    if not room.members.filter(id=request.user.id).exists():
+        return JsonResponse({"detail": "Not a member of this room"}, status=403)
+
+    activity_run_id = request.GET.get("activity_run_id") or room.activity_run_id
+    if not activity_run_id:
+        return JsonResponse({"detail": "No activity run found"}, status=404)
+
+    final_existing = _get_final_answer(room, activity_run_id)
+
+    state = get_activity_state(room)
+    if str(activity_run_id) == str(room.activity_run_id) and not state.get("finished", False):
+        return JsonResponse({"detail": "Activity not yet finished"}, status=400)
+
+    decide_phase_index = _get_decide_phase_index(room)
+    if decide_phase_index is None:
+        return JsonResponse({"detail": "No decide phase configured"}, status=400)
+
+    if request.method == "GET":
+        eligible_posts = Post.objects.filter(
+            room=room,
+            activity_run_id=activity_run_id,
+            phase_index=decide_phase_index,
+        ).select_related("author").order_by("created_at")
+
+        votes = (
+            FinalAnswerVote.objects.filter(
+                room=room,
+                activity_run_id=activity_run_id,
+            )
+            .values("post")
+            .annotate(count=Count("id"))
+        )
+        vote_map = {v["post"]: v["count"] for v in votes}
+
+        user_vote = FinalAnswerVote.objects.filter(
+            room=room,
+            activity_run_id=activity_run_id,
+            user=request.user,
+        ).first()
+
+        data = []
+        for post in eligible_posts:
+            data.append({
+                "id": post.id,
+                "content": post.content,
+                "author": post.author.first_name or post.author.username,
+                "created_at": post.created_at.isoformat(),
+                "votes": vote_map.get(post.id, 0),
+                "is_final": bool(final_existing and final_existing.post_id == post.id),
+            })
+
+        return JsonResponse({
+            "room_code": room.code,
+            "activity_run_id": str(activity_run_id),
+            "majority_needed": _get_majority_count(room),
+            "final_answer_post_id": final_existing.post_id if final_existing else None,
+            "user_vote_post_id": user_vote.post_id if user_vote else None,
+            "posts": data,
+        })
+
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    if final_existing:
+        return JsonResponse({"detail": "Final answer already finalized"}, status=400)
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+
+    action = (payload.get("action") or "").strip().lower()
+    if action not in {"vote"}:
+        return JsonResponse({"detail": "Invalid action"}, status=400)
+
+    post_id = payload.get("post_id")
+    if not post_id:
+        return JsonResponse({"detail": "post_id is required"}, status=400)
+
+    try:
+        post = Post.objects.select_related("author").get(
+            id=post_id,
+            room=room,
+            activity_run_id=activity_run_id,
+            phase_index=decide_phase_index,
+        )
+    except Post.DoesNotExist:
+        return JsonResponse({"detail": "Post not found"}, status=404)
+
+    FinalAnswerVote.objects.filter(
+        room=room,
+        activity_run_id=activity_run_id,
+        user=request.user,
+    ).delete()
+
+    FinalAnswerVote.objects.create(
+        room=room,
+        activity_run_id=activity_run_id,
+        post=post,
+        user=request.user,
+    )
+
+    votes_count = FinalAnswerVote.objects.filter(
+        room=room,
+        activity_run_id=activity_run_id,
+        post=post,
+    ).count()
+    majority_needed = _get_majority_count(room)
+
+    if votes_count >= majority_needed:
+        FinalAnswerSelection.objects.get_or_create(
+            room=room,
+            activity_run_id=activity_run_id,
+            defaults={"post": post},
+        )
+
+    return JsonResponse({
+        "id": post.id,
+        "content": post.content,
+        "author": post.author.first_name or post.author.username,
+        "created_at": post.created_at.isoformat(),
+        "votes": votes_count,
+        "majority_needed": majority_needed,
+    })
 

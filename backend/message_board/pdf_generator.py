@@ -1,8 +1,3 @@
-"""
-PDF generation for session summaries.
-Uses reportlab to create exportable PDF documents for facilitators.
-"""
-
 from io import BytesIO
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -11,9 +6,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 
-def generate_summary_pdf(summary, room):
-    """Generate a PDF document from a SessionSummary."""
-
+def generate_summary_pdf(summary, room, final_answer=None):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -108,7 +101,23 @@ def generate_summary_pdf(summary, room):
 
     # ===== Final Outcome =====
     elements.append(Paragraph("Group Outcome", heading_style))
-    outcome = summary.extracted_content.get("final_outcome")
+    outcome = None
+    if final_answer is not None:
+        if hasattr(final_answer, "post"):
+            author = ""
+            if getattr(final_answer.post, "author", None):
+                author = final_answer.post.author.first_name or final_answer.post.author.username
+            outcome = {
+                "content": final_answer.post.content,
+                "author": author,
+            }
+        else:
+            outcome = {
+                "content": final_answer.get("content"),
+                "author": final_answer.get("author", ""),
+            }
+    else:
+        outcome = summary.extracted_content.get("final_outcome")
     if outcome:
         content = _truncate(outcome['content'], 300)
         elements.append(Paragraph(
@@ -204,7 +213,6 @@ def generate_summary_pdf(summary, room):
 
 
 def _truncate(text, max_length):
-    """Truncate text and add ellipsis if too long."""
     if len(text) <= max_length:
         return text
     return text[:max_length - 3] + "..."
