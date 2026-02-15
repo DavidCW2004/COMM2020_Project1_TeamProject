@@ -41,6 +41,7 @@ type ActionItem = {
     timestamp: string;
 };
 
+
 type SessionSummaryData = {
     room_code: string;
     room_name: string;
@@ -95,33 +96,34 @@ export default function SessionSummaryPage() {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"overview" | "participation" | "process" | "quality">("overview");
 
-    useEffect(() => {
-        async function fetchSummary() {
-            if (!code) return;
+    async function fetchSummary() {
+        if (!code) return;
 
-            try {
-                setLoading(true);
-                const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/`, {
-                    credentials: "include",
-                });
+        try {
+            setLoading(true);
+            const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/`, {
+                credentials: "include",
+            });
 
-                if (!res.ok) {
-                    const data = await res.json().catch(() => ({}));
-                    throw new Error(data.detail || `Failed to load summary (${res.status})`);
-                }
-
-                const data = await res.json();
-                setSummary(data);
-            } catch (e: unknown) {
-                const errorMessage = e instanceof Error ? e.message : "Failed to load summary";
-                setError(errorMessage);
-            } finally {
-                setLoading(false);
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || `Failed to load summary (${res.status})`);
             }
-        }
 
-        fetchSummary();
+            const data = await res.json();
+            setSummary(data);
+        } catch (e: unknown) {
+            const errorMessage = e instanceof Error ? e.message : "Failed to load summary";
+            setError(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        void fetchSummary();
     }, [code]);
+
 
     async function handleExportPDF() {
         if (!code) return;
@@ -132,7 +134,8 @@ export default function SessionSummaryPage() {
             });
 
             if (!res.ok) {
-                throw new Error("Failed to generate PDF");
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || "Failed to generate PDF");
             }
 
             const blob = await res.blob();
@@ -147,6 +150,7 @@ export default function SessionSummaryPage() {
             setError(errorMessage);
         }
     }
+
 
     if (loading) {
         return (
