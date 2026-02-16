@@ -173,7 +173,7 @@ export default function ActivityWorkspacePage() {
         if (activeIntervention) return;
         if (interventionQueue.length === 0) return;
 
-        setShowWhy(false); 
+        setShowWhy(false);
         setActiveIntervention(interventionQueue[0]);
         setInterventionQueue((q) => q.slice(1));
     }, [interventionQueue, activeIntervention]);
@@ -308,13 +308,13 @@ export default function ActivityWorkspacePage() {
                     </div>
                 </div>
 
-                <div className={styles.membersListParent} style={{ display: "flex", flexDirection: "column" }}>
+                <div className={styles.chatCard} >
                     <div className={styles.membersHeading}>Prompt</div>
-                    <div style={{ padding: 12, opacity: 0.9 }}>
+                    <div className={styles.promptText}>
                         {activity?.phase_prompt ?? "Waiting…"}
                     </div>
 
-                    <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
+                    <div className={styles.messagesScroll}>
                         {loading && <div>Loading…</div>}
                         {error && <div style={{ color: "crimson" }}>{error}</div>}
                         {!loading && messages.length === 0 && <div>No messages yet.</div>}
@@ -419,7 +419,7 @@ export default function ActivityWorkspacePage() {
                         )}
                     </div>
 
-                    <div style={{ display: "flex", gap: 10, padding: 12 }}>
+                    <div className={styles.composerRow}>
                         {activity?.finished ? (
                             <>
                                 <button
