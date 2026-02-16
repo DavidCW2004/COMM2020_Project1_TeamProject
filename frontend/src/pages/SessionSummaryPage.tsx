@@ -85,7 +85,7 @@ type SessionSummaryData = {
     is_facilitator: boolean;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/").replace(/\/$/, "");
 
 export default function SessionSummaryPage() {
     const { code } = useParams<{ code: string }>();
