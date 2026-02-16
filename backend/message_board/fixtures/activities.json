@@ -3,32 +3,32 @@
     "model": "message_board.activity",
     "pk": 99,
     "fields": {
-      "name": "Quick Test Activity",
+      "name": "Demonstation Activity",
       "description": "activity testing phases.",
       "activity_type": "problem-solving",
       "phases": [
         {
           "name": "understand",
-          "prompt": "phase1",
-          "time_limit_minutes": 0.333,
+          "prompt": "Why are RAM prices so high",
+          "time_limit_minutes": 0.8,
           "turn_limit": 10
         },
         {
           "name": "propose",
-          "prompt": "phase2",
-          "time_limit_minutes": 0.333,
+          "prompt": "Where could we get our RAM",
+          "time_limit_minutes": 0.8,
           "turn_limit": 10
         },
         {
           "name": "critique",
-          "prompt": "phase3",
-          "time_limit_minutes": 0.333,
+          "prompt": "What is the best place to get RAM",
+          "time_limit_minutes": 0.8,
           "turn_limit": 10
         },
         {
           "name": "decide",
-          "prompt": "phase4",
-          "time_limit_minutes": 0.333,
+          "prompt": "Where are we going to get our RAM",
+          "time_limit_minutes": 0.8,
           "turn_limit": 10
         }
       ]
