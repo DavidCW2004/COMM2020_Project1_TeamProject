@@ -324,7 +324,7 @@ export default function RoomDashboardPage() {
                                         {room.selected_activity.name}
                                     </div>
 
-                                    <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                                    <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "center" }}>
                                         <button
                                             className={styles.primaryButton}
                                             type="button"
