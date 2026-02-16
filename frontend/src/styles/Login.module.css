@@ -1,22 +1,27 @@
 .rectangleParent {
-    width: 463px;
-    height: 1024px;
+    width: 100%;
+    max-width: 463px;
+    min-height: calc(100dvh - 32px);
+    height: calc(100dvh - 32px);
     margin: 0 auto;
     position: relative;
-
+    flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 24px;
+    align-items: stretch;
+    gap: 16px;
+    min-height: 0;
 }
 
 .page {
+    min-height: 100dvh;
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    align-items: center;
-
+    align-items: flex-start;
+    padding: 16px;
 }
+
 
 .frameChild {
     position: absolute;
@@ -113,8 +118,10 @@
 
 .frameDiv {
     position: relative;
-    width: 466px;
-    height: 96px;
+    width: 100%;
+    max-width: 463px;
+    height: auto;
+    min-height: 140px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -122,7 +129,7 @@
     padding: 14px 16px;
     gap: 6px;
     box-sizing: border-box;
-    margin-top: 32px;
+    margin-top: 0;
 }
 
 .rectangleDiv {
@@ -131,8 +138,8 @@
     left: 0px;
     border-radius: 7px;
     background-color: #f2efef;
-    width: 466px;
-    height: 96px;
+    width: 100%;
+    height: 100%;
     flex-shrink: 0;
     z-index: -1;
 }
@@ -248,17 +255,14 @@
 }
 
 .rooms {
-    position: absolute;
-    top: 10px;
-    left: 0px;
-    width: 463px;
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 75px;
+    position: static;
+    width: 100%;
+    height: auto;
+    display: block;
+    text-align: center;
+    font-size: clamp(44px, 12vw, 75px);
     line-height: 1;
-    margin: 0;
+    margin: 8px 0 6px;
 }
 
 .buttonParent {
@@ -314,29 +318,31 @@
 }
 
 .membersListParent {
+    flex: 1;
     width: 100%;
-    height: 546px;
-    position: relative;
-    border-radius: 6px;
-    background-color: #f2efef;
-
+    height: auto;
+    min-height: 0;
+    max-height: 55dvh;
     display: flex;
     flex-direction: column;
+    border-radius: 6px;
+    background-color: #f2efef;
     overflow: hidden;
 }
 
 .membersHeading {
     text-align: center;
     font-weight: 600;
-    margin-bottom: 10px;
-    font-size: 35px;
+    margin: 12px 0 8px;
+
+    font-size: clamp(20px, 5vw, 35px);
 }
 
 .memberList {
     display: grid;
     gap: 4px;
     font-size: 20px;
-    margin-left: 20px;
+    margin-left: 0px;
 }
 
 .activityArea {
@@ -355,7 +361,7 @@
 }
 
 .primaryButton {
-    width: 100%;
+    max-width: 100%;
     height: 32px;
     border: none;
     border-radius: 2px;
@@ -409,7 +415,6 @@
     overflow: hidden;
 }
 
-/* Top controls row */
 .catalogueControls {
     display: flex;
     gap: 6px;
@@ -417,6 +422,11 @@
     background-color: #D9D9D9;
     padding: 12px;
     border-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.catalogueControls>* {
+    min-width: 0;
 }
 
 .searchInput {
@@ -426,10 +436,11 @@
     border-radius: 6px;
     border: 1px solid #cfcfcf;
     outline: none;
+    max-width: 100%;
 }
 
 .filterSelect {
-    width: 140px;
+    max-width: 100%;
     height: 36px;
     padding: 0 10px;
     border-radius: 6px;
@@ -438,7 +449,10 @@
 }
 
 .membersContent {
-    transition: filter 160ms ease, opacity 160ms ease;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
 }
 
 .blurred {
@@ -469,9 +483,9 @@
 }
 
 .privacyNotice {
-  margin: 6px auto 0; 
-  width: fit-content;  
-  text-align: center;   
+    margin: 6px auto 0;
+    width: fit-content;
+    text-align: center;
 }
 
 .privacySummary {
@@ -496,4 +510,38 @@
 
 .privacyNotice>summary::-webkit-details-marker {
     display: none;
+}
+
+.messagesScroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
+}
+
+.composerRow {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.composerRow>* {
+    min-width: 0;
+}
+
+.promptText {
+    padding: 12px;
+    opacity: 0.9;
+}
+
+.chatCard {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 6px;
+    background-color: #f2efef;
 }
