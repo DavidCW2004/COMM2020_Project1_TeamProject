@@ -61,7 +61,7 @@ DB_PASSWORD=12345
 
 ### Frontend : (example)
 
-VITE_API_BASE_URL=/
+`VITE_API_BASE_URL=/`
 
 ## Run Locally
 
