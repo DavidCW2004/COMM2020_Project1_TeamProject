@@ -51,11 +51,13 @@ Use the Codespaces forwarded port link for the frontend
 
 ### Backend : (example)
 
-= DB_HOST=127.0.0.1
-= DB_PORT=5432
-= DB_USER=postgres
-= DB_NAME=postgres
-= DB_PASSWORD=12345
+```bash 
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_USER=postgres
+DB_NAME=postgres
+DB_PASSWORD=12345
+```
 
 ### Frontend : (example)
 
