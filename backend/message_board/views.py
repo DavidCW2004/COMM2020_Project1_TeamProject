@@ -27,7 +27,9 @@ from django.contrib.auth.hashers import make_password, check_password
 
 
 class PostViewSet(viewsets.ModelViewSet):
+    # create rest endpoint for frontend.
     queryset = Post.objects.all().order_by('-created_at')
+    # define how to convert post objects into json
     serializer_class = PostSerializer
 
 class ActivityViewSet(viewsets.ModelViewSet):
@@ -38,6 +40,8 @@ class ActivityViewSet(viewsets.ModelViewSet):
 
 @csrf_exempt
 def rooms(request):
+    # GET, to list non empty rooms
+    # POST, action is either create or join
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Authentication required"}, status=401)
 
@@ -140,6 +144,7 @@ def rooms(request):
 
 @csrf_exempt
 def messages(request):
+    # messages grouped by room, current phase and run id, each session should only show own messages
     room_code = (request.GET.get("room") or "").strip().upper()
     if not room_code:
         return JsonResponse({"detail": "room is required"}, status=400)
@@ -319,6 +324,7 @@ def room_detail(request, code):
 
 @csrf_exempt
 def start_activity(request, code):
+    # activity running is true, record when activity stated, create new activity run id
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
@@ -392,6 +398,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 def get_activity_state(room):
+    # compare elapsed time of activity started against phase duratiosn, this determines what phase its in
     activity = getattr(room, "selected_activity", None)
 
     if not activity or not getattr(room, "activity_is_running", False) or not getattr(room, "activity_started_at", None):
@@ -470,6 +477,7 @@ def get_activity_state(room):
 
 @csrf_exempt
 def session_summary(request, code):
+    # returns exisiting summary or generates a new one
     if request.method != "GET":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 
@@ -681,6 +689,7 @@ def export_summary_pdf(request, code):
 
 @csrf_exempt
 def final_answer(request, code):
+    # members vote on post
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Authentication required"}, status=401)
 

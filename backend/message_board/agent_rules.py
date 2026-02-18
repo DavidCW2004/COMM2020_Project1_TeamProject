@@ -11,6 +11,7 @@ JOIN_GRACE_PERIOD = timedelta(minutes=2)
 
 EQUITY_COOLDOWN = timedelta(minutes=5)
 
+# if these are in a message then theres is evidence
 EVIDENCE_KEYWORDS = [
     "because", "research", "study", "data", "evidence", "shows", "according to",
     "http://", "https://", "for example", "for instance", "e.g."
@@ -24,6 +25,7 @@ CITATION_PATTERNS = [
 ]
 
 def _agent(name: str, description: str) -> Agent:
+    # create the agent if it doessnt't exist yet
     a, _ = Agent.objects.get_or_create(
         name=name,
         defaults={"description": description, "is_active": True},
@@ -32,6 +34,7 @@ def _agent(name: str, description: str) -> Agent:
 
 
 def _recent(room, agent: Agent, rule_name: str, since, phase_index, recipient=None):
+    # don't nudge if user has been nudged recently
     qs = Intervention.objects.filter(
         room=room,
         agent=agent,
@@ -55,6 +58,7 @@ def _recent(room, agent: Agent, rule_name: str, since, phase_index, recipient=No
 
 
 def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, phase_index, recipient=None):
+    # save intervention agent, rule, message, room phase
     if not agent.is_active:
         return
 
@@ -70,6 +74,7 @@ def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, 
     )
     
 def check_individual_inactivity_rule(room, phase_index=None):
+    # if they have not posted within inactivity window nudge them, theres a cooldown if they were nudged recently
     now = timezone.now()
 
     members_qs = room.members.all()
@@ -121,6 +126,7 @@ def check_individual_inactivity_rule(room, phase_index=None):
 
 
 def check_equity_rule(room, phase_index=None) -> bool:
+    # compare each member post count to threshold that is based on the average message in that phase, nudge members below
     posts = Post.objects.filter(room=room, phase_index=phase_index)
     if posts.count() < 3:
         return False
@@ -159,6 +165,7 @@ def check_equity_rule(room, phase_index=None) -> bool:
     return triggered
 
 def message_lacks_evidence(text: str) -> bool:
+    # flag longer messages that dont have evidence words
     t = (text or "").strip().lower()
     if not t:
         return False
@@ -189,6 +196,7 @@ SHORT_MESSAGE_COOLDOWN = timedelta(minutes=5)
 
 
 def check_evidence_rule(room, post) -> bool:
+    # if the user keeps posting stuff without evidence they get nudged
     if not message_lacks_evidence(post.content):
         return False
 
@@ -238,6 +246,7 @@ def check_evidence_rule(room, post) -> bool:
     return True
 
 def check_dominant_speaker_rule(room, phase_index=None) -> bool:
+    # if the same user posts multiple messages in a row they get a nudge
     posts = Post.objects.filter(room=room, phase_index=phase_index).order_by('-created_at')
     if posts.count() < DOMINANT_SPEAKER_THRESHOLD:
         return False
@@ -267,6 +276,7 @@ def check_dominant_speaker_rule(room, phase_index=None) -> bool:
 
 
 def check_unanswered_question_rule(room, phase_index=None) -> bool:
+    # find questions older than timeout with no reply and send reminder to reply
     now = timezone.now()
     threshold_time = now - UNANSWERED_QUESTION_TIMEOUT
 
@@ -307,6 +317,7 @@ def check_unanswered_question_rule(room, phase_index=None) -> bool:
 
 
 def check_short_message_rule(room, post) -> bool:
+    # send nudge if too short, maybe needs to be fixed
     content = (post.content or "").strip()
     if len(content) >= SHORT_MESSAGE_LENGTH:
         return False
@@ -326,6 +337,7 @@ def check_short_message_rule(room, post) -> bool:
 
 
 def check_all_rules(room, new_post=None):
+    # check each post for each rules
     triggered = []
 
     phase_index = getattr(new_post, "phase_index", None)
