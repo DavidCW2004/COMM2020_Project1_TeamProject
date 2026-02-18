@@ -3,7 +3,7 @@
     "model": "message_board.activity",
     "pk": 99,
     "fields": {
-      "name": "Demonstation Activity",
+      "name": "Demonstation Activity", 
       "description": "activity testing phases.",
       "activity_type": "problem-solving",
       "phases": [
