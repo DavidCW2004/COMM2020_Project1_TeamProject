@@ -2,12 +2,14 @@
 
 Learning platform that facilitates fair collaboration in given tasks
 
+--- 
+
 ## Links
 - Repository : https://github.com/DavidCW2004/COMM2020_Project1_TeamProject
 
 ---
 
-##Tech Stack 
+## Tech Stack 
 **Frontend**
 - Vite + React + TypeScript
 
