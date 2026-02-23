@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {fetchRoom,fetchRoomMembers,joinRoom,startRoomActivity,type Room} from "../api/client";
+import { fetchRoom, fetchRoomMembers, joinRoom, startRoomActivity, type Room } from "../api/client";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { toast } from "sonner";
 
 type Member = {
     id: number;
@@ -27,6 +28,8 @@ export default function RoomDashboardPage() {
 
     const isActivityRunning = room?.activity?.is_running === true;
     const isActivityFinished = room?.activity?.finished === true;
+
+    const [copiedCode, setCopiedCode] = useState(false);
 
     const currentUser = useMemo(() => {
         const raw = localStorage.getItem("sst:user");
@@ -162,6 +165,16 @@ export default function RoomDashboardPage() {
         }
     }
 
+    async function copyRoomCode() {
+        if (!code) return;
+        try {
+            await navigator.clipboard.writeText(code);
+            toast.success("Room code copied", { description: `Code: ${code}` });
+        } catch {
+            toast.error("Could not copy room code");
+        }
+    }
+
     const statusLabel = isActivityRunning
         ? isActivityFinished
             ? "Finished"
@@ -179,18 +192,26 @@ export default function RoomDashboardPage() {
                             <h1 className="text-2xl font-semibold tracking-tight truncate">
                                 {room ? room.name : "Loading…"}
                             </h1>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Code: <span className="font-medium text-foreground">{code ?? ""}</span>
-                                {room?.is_private ? (
-                                    <span className="ml-2 text-xs rounded-full border border-border bg-muted/40 px-2 py-0.5">
-                                        Private
-                                    </span>
-                                ) : (
-                                    <span className="ml-2 text-xs rounded-full border border-border bg-muted/40 px-2 py-0.5">
-                                        Public
-                                    </span>
-                                )}
-                            </p>
+                            <div className="mt-1 text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                                <span>
+                                    Code: <span className="font-medium text-foreground">{code ?? ""}</span>
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={copyRoomCode}
+                                    className="text-xs rounded-full border border-border bg-muted/40 px-2.5 py-1
+               hover:bg-muted/60 transition
+               focus:outline-none focus-visible:ring-2 focus-visible:ring-primary
+               focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                >
+                                    {copiedCode ? "Copied!" : "Copy code"}
+                                </button>
+
+                                <span className="text-xs rounded-full border border-border bg-muted/40 px-2 py-0.5">
+                                    {room?.is_private ? "Private" : "Public"}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2">
