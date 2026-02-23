@@ -1,39 +1,32 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import styles from "../styles/Login.module.css";
-import modalStyles from "../styles/Modal.module.css";
-
-import { fetchRoom, fetchRoomMembers, joinRoom, startRoomActivity, type Room } from "../api/client";
-
-
+import {fetchRoom,fetchRoomMembers,joinRoom,startRoomActivity,type Room} from "../api/client";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 type Member = {
     id: number;
     name: string;
 };
 
-
-
 export default function RoomDashboardPage() {
-
     const pollRef = useRef<number | null>(null);
     const autoJoinRef = useRef(false);
 
     const { code } = useParams<{ code: string }>();
+    const navigate = useNavigate();
 
     const [room, setRoom] = useState<Room | null>(null);
     const [members, setMembers] = useState<Member[]>([]);
     const [error, setError] = useState<string | null>(null);
+
     const [joinError, setJoinError] = useState<string | null>(null);
     const [joinLoading, setJoinLoading] = useState(false);
     const [joinedOnce, setJoinedOnce] = useState(false);
+    const [joinPassword, setJoinPassword] = useState("");
 
     const isActivityRunning = room?.activity?.is_running === true;
     const isActivityFinished = room?.activity?.finished === true;
-    const [joinPassword, setJoinPassword] = useState("");
-
-
-    const navigate = useNavigate();
 
     const currentUser = useMemo(() => {
         const raw = localStorage.getItem("sst:user");
@@ -65,8 +58,7 @@ export default function RoomDashboardPage() {
             }
         };
 
-        loadRoom();
-
+        void loadRoom();
         const id = window.setInterval(loadRoom, 2000);
         return () => window.clearInterval(id);
     }, [code]);
@@ -84,7 +76,9 @@ export default function RoomDashboardPage() {
             try {
                 setJoinError(null);
                 setJoinLoading(true);
+
                 await joinRoom(code);
+
                 const memberData = await fetchRoomMembers(code);
                 setMembers(memberData);
                 setJoinedOnce(true);
@@ -118,11 +112,9 @@ export default function RoomDashboardPage() {
             }
         };
 
-        loadMembers();
-
+        void loadMembers();
 
         if (pollRef.current) window.clearInterval(pollRef.current);
-
         pollRef.current = window.setInterval(loadMembers, 2000);
 
         return () => {
@@ -130,9 +122,6 @@ export default function RoomDashboardPage() {
             pollRef.current = null;
         };
     }, [code]);
-
-
-
 
     async function startActivity() {
         if (!code) return;
@@ -173,184 +162,210 @@ export default function RoomDashboardPage() {
         }
     }
 
-
+    const statusLabel = isActivityRunning
+        ? isActivityFinished
+            ? "Finished"
+            : "Running"
+        : room?.selected_activity
+            ? "Ready"
+            : "No activity";
 
     return (
-        <div className={styles.page}>
-            <div className={styles.rectangleParent}>
-                <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv} />
-                    <h2 className={styles.socialStudyTeammates}>
-                        {room ? room.name : "Loading..."}
-                    </h2>
-                    <div className={styles.collaborativeLearningWith}>Code : {code ?? ""}</div>
+        <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl space-y-6">
+                <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight truncate">
+                                {room ? room.name : "Loading…"}
+                            </h1>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Code: <span className="font-medium text-foreground">{code ?? ""}</span>
+                                {room?.is_private ? (
+                                    <span className="ml-2 text-xs rounded-full border border-border bg-muted/40 px-2 py-0.5">
+                                        Private
+                                    </span>
+                                ) : (
+                                    <span className="ml-2 text-xs rounded-full border border-border bg-muted/40 px-2 py-0.5">
+                                        Public
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs rounded-full border border-border bg-muted/40 px-3 py-1">
+                                Activity:{" "}
+                                <span className={isActivityRunning && !isActivityFinished ? "font-semibold text-primary" : "font-semibold"}>
+                                    {statusLabel}
+                                </span>
+                            </span>
+
+                            <Button variant="secondary" onClick={() => navigate("/rooms")}>
+                                Back to rooms
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
-                <div className={styles.membersListParent}>
-                    <div className={styles.membersHeading}>Members</div>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    <div className="lg:col-span-3 rounded-lg border border-border bg-background p-6 shadow-sm relative overflow-hidden">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold">Members</h2>
+                            <div className="text-sm text-muted-foreground">
+                                {members.length} online
+                            </div>
+                        </div>
 
-                    <div
-                        className={`${styles.membersContent} ${!isMember ? styles.blurred : ""}`}
-                        aria-hidden={!isMember}
-                    >
-                        {members.length === 0 ? (
-                            <div style={{ textAlign: "center", opacity: 0.8 }}>No members yet</div>
-                        ) : (
-                            <div className={styles.memberList}>
-                                {members.map((m) => (
-                                    <div key={m.id}>{m.name}</div>
-                                ))}
+                        <div className={isMember ? "mt-4" : "mt-4 blur-sm opacity-60 pointer-events-none select-none"}>
+                            {members.length === 0 ? (
+                                <div className="text-center text-sm text-muted-foreground py-10">
+                                    No members yet
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    {members.map((m) => (
+                                        <div
+                                            key={m.id}
+                                            className="rounded-lg border border-border bg-muted/20 px-3 py-2"
+                                        >
+                                            {m.name}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {room && !isMember && (
+                            <div className="absolute inset-0 flex items-center justify-center p-6">
+                                <div className="w-full max-w-md rounded-xl border border-border bg-background/90 backdrop-blur p-5 shadow-lg">
+                                    <div className="space-y-3">
+                                        <div>
+                                            <h3 className="text-base font-semibold">Join this room</h3>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                {room.is_private
+                                                    ? "This room is private — enter the password to join."
+                                                    : "This room is public — click join to enter."}
+                                            </p>
+                                        </div>
+
+                                        {room.is_private && (
+                                            <Input
+                                                type="password"
+                                                value={joinPassword}
+                                                onChange={(e) => setJoinPassword(e.target.value)}
+                                                placeholder="Room password"
+                                                disabled={joinLoading}
+                                                autoComplete="off"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter" && !joinLoading) handleJoinRoom();
+                                                }}
+                                            />
+                                        )}
+
+                                        {joinError && (
+                                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                                {joinError}
+                                            </div>
+                                        )}
+
+                                        <Button
+                                            onClick={handleJoinRoom}
+                                            disabled={joinLoading}
+                                            className="w-full"
+                                        >
+                                            {joinLoading ? "Joining…" : "Join room"}
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    {room && !isMember && (
-                        <div className={styles.membersOverlay}>
-                            <div className={styles.membersOverlayCard}>
-                                {room?.is_private && (
-                                    <div style={{ width: "100%", marginBottom: 10 }}>
-                                        <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 8 }}>
-                                            This room is private — enter the password to join.
-                                        </div>
+                    <div className="lg:col-span-2 rounded-lg border border-border bg-background p-6 shadow-sm">
+                        <h2 className="text-lg font-semibold">Activity</h2>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Start, continue, or review the room session.
+                        </p>
 
-                                        <input
-                                            className={modalStyles.input} 
-                                            type="password"
-                                            value={joinPassword}
-                                            onChange={(e) => setJoinPassword(e.target.value)}
-                                            placeholder="Room password"
-                                            disabled={joinLoading}
-                                            autoComplete="off"
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" && !joinLoading) handleJoinRoom();
-                                            }}
-                                        />
-                                    </div>
-                                )}
+                        <div className="mt-5 space-y-4">
+                            {isActivityRunning && !isActivityFinished && (
+                                <div className="space-y-3">
+                                    <div className="text-xs text-muted-foreground">Currently running</div>
 
-                                <button
-                                    className={styles.primaryButton}
-                                    type="button"
-                                    onClick={handleJoinRoom}
-                                    disabled={joinLoading}
-                                >
-                                    {joinLoading ? "Joining..." : "Join Room"}
-                                </button>
-
-                                {joinError && <div className={styles.errorMessage}>{joinError}</div>}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-
-
-                <div className={styles.activityArea}>
-
-
-                    {isActivityRunning && !isActivityFinished && (
-                        <>
-                            <div className={styles.smallNote}>Activity</div>
-
-                            <div style={{ marginTop: 6, fontWeight: 700, fontSize: 16 }}>
-                                {room?.activity.activity_name}
-                            </div>
-
-                            <div style={{ marginTop: 6, opacity: 0.85, fontSize: 13 }}>
-                                Phase: {room?.activity.phase_name} (
-                                {(room?.activity.phase_index ?? 0) + 1}/
-                                {room?.activity.total_phases})
-                            </div>
-
-                            <button
-                                className={styles.primaryButton}
-                                type="button"
-                                style={{ marginTop: 12 }}
-                                onClick={() => navigate(`/room/${code}/activity`)}
-                            >
-                                Enter Activity Workspace →
-                            </button>
-                        </>
-                    )}
-
-
-                    {isActivityRunning && isActivityFinished && (
-                        <>
-                            <div className={styles.smallNote}>Activity finished</div>
-
-                            <div style={{ marginTop: 6, fontWeight: 700 }}>
-                                {room?.activity.activity_name}
-                            </div>
-
-                            <button
-                                className={styles.primaryButton}
-                                type="button"
-                                style={{ marginTop: 12 }}
-                                onClick={() => navigate(`/room/${code}/summary`)}
-                            >
-                                View Session Summary
-                            </button>
-
-                            <button
-                                className={styles.primaryButton}
-                                type="button"
-                                style={{ marginTop: 12 }}
-                                onClick={() => navigate(`/room/${code}/activities`)}
-                            >
-                                Select New Activity
-                            </button>
-                        </>
-                    )}
-
-
-                    {!isActivityRunning && (
-                        <>
-                            {!room?.selected_activity ? (
-                                <>
-                                    <div className={styles.smallNote}>No activity selected</div>
-                                    <button
-                                        className={styles.primaryButton}
-                                        type="button"
-                                        onClick={() => navigate(`/room/${code}/activities`)}
-                                    >
-                                        Select Activity
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <div className={styles.smallNote}>Selected activity</div>
-
-                                    <div style={{ marginTop: 6, fontWeight: 700, fontSize: 16 }}>
-                                        {room.selected_activity.name}
+                                    <div className="font-semibold">
+                                        {room?.activity.activity_name}
                                     </div>
 
-                                    <div style={{ display: "flex", gap: 10, marginTop: 12, justifyContent: "center" }}>
-                                        <button
-                                            className={styles.primaryButton}
-                                            type="button"
-                                            onClick={startActivity}
-                                        >
-                                            Start Activity
-                                        </button>
-
-                                        <button
-                                            className={styles.primaryButton}
-                                            type="button"
-                                            onClick={() => navigate(`/room/${code}/activities`)}
-                                        >
-                                            Change
-                                        </button>
+                                    <div className="text-sm text-muted-foreground">
+                                        Phase:{" "}
+                                        <span className="font-medium text-foreground">
+                                            {room?.activity.phase_name}
+                                        </span>{" "}
+                                        <span className="text-muted-foreground">
+                                            ({(room?.activity.phase_index ?? 0) + 1}/{room?.activity.total_phases})
+                                        </span>
                                     </div>
-                                </>
+
+                                    <Button onClick={() => navigate(`/room/${code}/activity`)} className="w-full">
+                                        Enter activity workspace →
+                                    </Button>
+                                </div>
                             )}
-                        </>
-                    )}
+
+                            {isActivityRunning && isActivityFinished && (
+                                <div className="space-y-3">
+                                    <div className="text-xs text-muted-foreground">Activity finished</div>
+                                    <div className="font-semibold">{room?.activity.activity_name}</div>
+
+                                    <Button variant="secondary" onClick={() => navigate(`/room/${code}/summary`)} className="w-full">
+                                        View session summary
+                                    </Button>
+                                    <Button onClick={() => navigate(`/room/${code}/activities`)} className="w-full">
+                                        Select new activity
+                                    </Button>
+                                </div>
+                            )}
+
+                            {!isActivityRunning && (
+                                <div className="space-y-3">
+                                    {!room?.selected_activity ? (
+                                        <>
+                                            <div className="text-xs text-muted-foreground">No activity selected</div>
+                                            <Button onClick={() => navigate(`/room/${code}/activities`)} className="w-full">
+                                                Select activity
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="text-xs text-muted-foreground">Selected activity</div>
+                                            <div className="font-semibold">{room.selected_activity.name}</div>
+
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <Button onClick={startActivity}>Start</Button>
+                                                <Button variant="secondary" onClick={() => navigate(`/room/${code}/activities`)}>
+                                                    Change
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {error && (
+                            <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {error}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-
-
-
-                {error && <div className={styles.error}>{error}</div>}
+                {error && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {error}
+                    </div>
+                )}
             </div>
         </div>
     );
