@@ -85,7 +85,7 @@ python -m venv .venv
 
 3. Start the backend server
 
-`python manage.py runsever`
+`python manage.py runserver`
 
 ### Frontend (Local)
 

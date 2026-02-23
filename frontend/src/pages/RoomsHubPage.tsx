@@ -1,18 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
-import styles from "../styles/Login.module.css";
 import Modal from "../components/Modal";
-import { createRoom, joinRoom, fetchRooms, type RoomListItem, fetchRoom } from "../api/client";
-import modalStyles from "../styles/Modal.module.css";
+import {
+    createRoom,
+    joinRoom,
+    fetchRooms,
+    type RoomListItem,
+} from "../api/client";
 import { useNavigate } from "react-router-dom";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
+function RoomsSkeleton() {
+    return (
+        <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                    key={i}
+                    className="rounded-lg border border-border bg-background p-4 shadow-sm"
+                >
+                    <div className="h-5 w-2/3 bg-muted rounded" />
+                    <div className="mt-3 h-4 w-1/3 bg-muted rounded" />
+                    <div className="mt-2 h-4 w-1/4 bg-muted rounded" />
+                </div>
+            ))}
+        </div>
+    );
+}
 
 export default function RoomsHubPage() {
-
     const navigate = useNavigate();
+
     const [rooms, setRooms] = useState<RoomListItem[]>([]);
     const [query, setQuery] = useState("");
     const [roomsError, setRoomsError] = useState<string | null>(null);
-    const [roomsLoading, setRoomsLoading] = useState(true)
+    const [roomsLoading, setRoomsLoading] = useState(true);
 
     const [createOpen, setCreateOpen] = useState(false);
     const [joinOpen, setJoinOpen] = useState(false);
@@ -25,7 +46,6 @@ export default function RoomsHubPage() {
 
     const [joinPassword, setJoinPassword] = useState("");
     const [joinNeedsPassword, setJoinNeedsPassword] = useState(false);
-    const [joinChecking, setJoinChecking] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [modalError, setModalError] = useState<string | null>(null);
@@ -56,6 +76,7 @@ export default function RoomsHubPage() {
         setCreateOpen(true);
         setCreatePrivate(false);
         setCreatePassword("");
+        setCreateName("");
     };
 
     const openJoin = () => {
@@ -73,7 +94,6 @@ export default function RoomsHubPage() {
             setModalError("Please enter a room name.");
             return;
         }
-
         if (createPrivate && createPassword.trim().length < 4) {
             setModalError("Password must be at least 4 characters.");
             return;
@@ -88,10 +108,10 @@ export default function RoomsHubPage() {
             setCreateOpen(false);
             setCreatedRoom({ code: room.code, name: room.name || name });
             setCreateSuccessOpen(true);
+
             setCreateName("");
             setCreatePrivate(false);
             setCreatePassword("");
-            setModalError(null);
         } catch (err) {
             setModalError(err instanceof Error ? err.message : "Failed to create room");
         } finally {
@@ -101,7 +121,10 @@ export default function RoomsHubPage() {
 
     const handleJoinRoom = async () => {
         const code = joinCode.trim().toUpperCase();
-        if (!code) return;
+        if (!code) {
+            setModalError("Enter a room code.");
+            return;
+        }
 
         if (joinNeedsPassword && !joinPassword.trim()) {
             setModalError("Password is required for this room.");
@@ -116,12 +139,21 @@ export default function RoomsHubPage() {
             setJoinOpen(false);
             navigate(`/room/${room.code}`);
         } catch (err) {
-            setModalError(err instanceof Error ? err.message : "Failed to join room");
+            const msg = err instanceof Error ? err.message : "Failed to join room";
+
+            // If the backend indicates a password is needed, reveal the password field
+            // (adjust the condition to match your backend error message)
+            if (!joinNeedsPassword && msg.toLowerCase().includes("password")) {
+                setJoinNeedsPassword(true);
+                setModalError("This room is private. Enter the password to join.");
+                return;
+            }
+
+            setModalError(msg);
         } finally {
             setLoading(false);
         }
     };
-
 
     async function loadRooms() {
         setRoomsLoading(true);
@@ -149,210 +181,170 @@ export default function RoomsHubPage() {
         return rooms.filter((r) => `${r.name} ${r.code}`.toLowerCase().includes(q));
     }, [rooms, query]);
 
-    useEffect(() => {
-        if (!joinOpen) return;
 
-        const code = joinCode.trim().toUpperCase();
-        if (code.length < 4) {
-            setJoinNeedsPassword(false);
-            setJoinPassword("");
-            setModalError(null);
-            return;
-        }
-
-        let cancelled = false;
-        setJoinChecking(true);
-        setModalError(null);
-
-        const t = window.setTimeout(async () => {
-            try {
-                const room = await fetchRoom(code);
-                if (cancelled) return;
-                const isPrivate = !!(room as any).is_private;
-                setJoinNeedsPassword(isPrivate);
-                if (!isPrivate) setJoinPassword("");
-            } catch (e) {
-                if (cancelled) return;
-                setJoinNeedsPassword(false);
-            } finally {
-                if (!cancelled) setJoinChecking(false);
-            }
-        }, 400);
-
-        return () => {
-            cancelled = true;
-            window.clearTimeout(t);
-        };
-    }, [joinCode, joinOpen]);
 
     return (
-        <div className={styles.page}>
-            <div className={styles.rectangleParent}>
-                <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv} />
-                    <h1 className={styles.rooms}>Rooms</h1>
+        <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl space-y-6">
+                <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div>
+                            <h1 className="text-2xl font-semibold tracking-tight">Rooms</h1>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Create a room, join with a code, or open an active room.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <Button variant="secondary" onClick={openJoin}>
+                                Join room
+                            </Button>
+                            <Button onClick={openCreate}>Create room</Button>
+                        </div>
+                    </div>
+                    <div className="mt-5">
+                        <Input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search by room name or code…"
+                        />
+                    </div>
                 </div>
-
-                <div className={styles.buttonParent}>
-                    <button className={styles.roomButton} onClick={openCreate}>
-                        <div className={styles.roomLabel}>Create Room</div>
-                    </button>
-
-                    <button className={styles.roomButton} onClick={openJoin}>
-                        <div className={styles.roomLabel}>Join Room</div>
-                    </button>
-                </div>
-
-                <div className={styles.membersListParent} style={{ width: "100%" }}>
-                    <div className={styles.membersHeading} style={{ fontSize: 28 }}>
-                        Active Rooms
+                <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <h2 className="text-lg font-semibold">Active rooms</h2>
+                        <div className="text-sm text-muted-foreground">
+                            {roomsLoading ? "Loading…" : `${filtered.length} shown`}
+                        </div>
                     </div>
 
+                    <div className="mt-4">
+                        {roomsError && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {roomsError}
+                            </div>
+                        )}
 
-                    {roomsError && <div className={styles.error}>{roomsError}</div>}
+                        {!roomsError && roomsLoading && <RoomsSkeleton />}
 
-                    {!roomsError && roomsLoading && (
-                        <div style={{ textAlign: "center", opacity: 0.8, padding: 20 }}>Loading rooms…</div>
-                    )}
+                        {!roomsError && !roomsLoading && filtered.length === 0 && (
+                            <div className="rounded-lg border border-border bg-muted/40 p-8 text-center">
+                                <div className="text-base font-semibold">No active rooms</div>
+                                <div className="mt-2 text-sm text-muted-foreground">
+                                    Create a room or join with a code.
+                                </div>
+                                <div className="mt-4 flex justify-center gap-2">
+                                    <Button onClick={openCreate}>Create room</Button>
+                                    <Button variant="secondary" onClick={openJoin}>
+                                        Join room
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
-                    {!roomsError && !roomsLoading && filtered.length === 0 && (
-                        <div className={styles.emptyState}>
-                            <div className={styles.emptyTitle}>No active rooms</div>
-                            <div className={styles.emptySubtitle}>Create a room or join with a code.</div>
-                        </div>
-                    )}
-
-                    {!roomsError && filtered.length > 0 && (
-                        <div className={styles.scrollArea} style={{ padding: 12 }}>
-                            <div className={styles.memberList} style={{ marginLeft: 0 }}>
+                        {!roomsError && !roomsLoading && filtered.length > 0 && (
+                            <div className="grid gap-3">
                                 {filtered.map((r) => (
                                     <div
                                         key={r.code}
-                                        style={{
-                                            background: "#f2efef",
-                                            border: "1px solid #cfcfcf",
-                                            borderRadius: 10,
-                                            padding: 12,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            gap: 12,
-                                            width: "100%",
-                                            boxSizing: "border-box",
-                                            overflow: "hidden",
-                                        }}
+                                        className="rounded-lg border border-border bg-background p-4 shadow-sm hover:shadow-md transition"
                                     >
-                                        <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                                            <div
-                                                style={{
-                                                    fontWeight: 700,
-                                                    fontSize: 18,
-                                                    lineHeight: 1.1,
-                                                    whiteSpace: "nowrap",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                }}
+                                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                                            <div className="min-w-0">
+                                                <div className="font-semibold text-base truncate">
+                                                    {r.name}{" "}
+                                                    <span className="font-medium text-sm text-muted-foreground">
+                                                        ({r.code})
+                                                    </span>
+                                                </div>
+
+                                                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                                    <span>
+                                                        Members:{" "}
+                                                        <span className="font-semibold text-foreground">
+                                                            {r.members_count}
+                                                        </span>
+                                                    </span>
+
+                                                    <span className="hidden sm:inline">•</span>
+
+                                                    <span>
+                                                        Status:{" "}
+                                                        <span
+                                                            className={
+                                                                r.is_running
+                                                                    ? "font-semibold text-primary"
+                                                                    : "font-semibold text-foreground"
+                                                            }
+                                                        >
+                                                            {r.is_running ? "Running" : "Idle"}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <Button
+                                                onClick={() => navigate(`/room/${r.code}`)}
+                                                className="shrink-0"
                                             >
-                                                {r.name}{" "}
-                                                <span style={{ fontWeight: 500, fontSize: 14, opacity: 0.75 }}>
-                                                    ({r.code})
-                                                </span>
-                                            </div>
-
-                                            <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                                                Members: <b>{r.members_count}</b>
-                                            </div>
-
-                                            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
-                                                Status: <span style={{ fontWeight: 700 }}>{r.is_running ? "Running" : "Idle"}</span>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ flex: "0 0 auto" }}>
-                                            <button
-                                                className={styles.primaryButton}
-                                                type="button"
-                                                style={{
-                                                    height: 32,
-                                                    width: 140,
-                                                    maxWidth: "100%",
-                                                    whiteSpace: "nowrap",
-                                                }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/room/${r.code}`);
-                                                }}
-                                            >
-                                                Open Room →
-                                            </button>
+                                                Open room →
+                                            </Button>
                                         </div>
                                     </div>
-
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
-
             </div>
-
-
             <Modal
                 isOpen={createOpen}
                 onClose={closeCreate}
                 footer={
-                    <button
-                        onClick={handleCreateRoom}
-                        disabled={loading}
-                        style={{
-                            width: 160,
-                            height: 40,
-                            borderRadius: 8,
-                            background: "#bdbdbd",
-                            border: "none",
-                            color: "#fff",
-                            cursor: "pointer",
-                        }}
-                    >
-                        Continue
-                    </button>
+                    <Button onClick={handleCreateRoom} disabled={loading} className="w-full sm:w-40">
+                        {loading ? "Creating…" : "Continue"}
+                    </Button>
                 }
             >
-                <h2 style={{ margin: 0 }}>Create a Room</h2>
+                <div className="space-y-4">
+                    <h2 className="m-0 text-lg font-semibold">Create a room</h2>
 
-                <div className={modalStyles.form}>
-                    <input
-                        className={modalStyles.input}
-                        value={createName}
-                        onChange={(e) => setCreateName(e.target.value)}
-                        placeholder="Room Name"
-                        disabled={loading}
-                    />
-                    {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-                        <input
-                            type="checkbox"
-                            checked={createPrivate}
-                            onChange={(e) => setCreatePrivate(e.target.checked)}
+                    <div className="space-y-3">
+                        <Input
+                            value={createName}
+                            onChange={(e) => setCreateName(e.target.value)}
+                            placeholder="Room name"
                             disabled={loading}
                         />
-                        Private room (requires password)
-                    </label>
 
-                    {createPrivate && (
-                        <input
-                            className={modalStyles.input}
-                            type="password"
-                            value={createPassword}
-                            onChange={(e) => setCreatePassword(e.target.value)}
-                            placeholder="Set a password"
-                            disabled={loading}
-                            style={{ marginTop: 10 }}
-                        />
-                    )}
+                        {modalError && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {modalError}
+                            </div>
+                        )}
+
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={createPrivate}
+                                onChange={(e) => setCreatePrivate(e.target.checked)}
+                                disabled={loading}
+                            />
+                            Private room (requires password)
+                        </label>
+
+                        {createPrivate && (
+                            <Input
+                                type="password"
+                                value={createPassword}
+                                onChange={(e) => setCreatePassword(e.target.value)}
+                                placeholder="Set a password"
+                                disabled={loading}
+                            />
+                        )}
+                    </div>
                 </div>
             </Modal>
-
 
             <Modal
                 isOpen={createSuccessOpen}
@@ -360,10 +352,12 @@ export default function RoomsHubPage() {
                     setCreateSuccessOpen(false);
                     setCreatedRoom(null);
                     setCopied(false);
+                    setModalError(null);
                 }}
                 footer={
-                    <div style={{ display: "grid", gap: 10, width: "100%", justifyItems: "center" }}>
-                        <button
+                    <div className="grid gap-2 w-full">
+                        <Button
+                            variant="secondary"
                             type="button"
                             onClick={async () => {
                                 if (!createdRoom) return;
@@ -375,52 +369,41 @@ export default function RoomsHubPage() {
                                     setModalError("Could not copy to clipboard.");
                                 }
                             }}
-                            style={{
-                                width: 220,
-                                height: 38,
-                                borderRadius: 8,
-                                background: "#e0e0e0",
-                                border: "none",
-                                cursor: "pointer",
-                            }}
                         >
-                            {copied ? "Copied!" : "Copy Code"}
-                        </button>
+                            {copied ? "Copied!" : "Copy code"}
+                        </Button>
 
-                        <button
+                        <Button
                             type="button"
                             onClick={() => {
                                 if (!createdRoom) return;
                                 navigate(`/room/${createdRoom.code}`);
                             }}
-                            style={{
-                                width: 220,
-                                height: 38,
-                                borderRadius: 8,
-                                background: "#bdbdbd",
-                                border: "none",
-                                color: "#fff",
-                                cursor: "pointer",
-                            }}
                         >
-                            Go to Room
-                        </button>
+                            Go to room
+                        </Button>
                     </div>
                 }
             >
-                <h2 style={{ margin: 0 }}>
-                    Room Created 🎉
-                </h2>
+                <div className="space-y-4">
+                    <h2 className="m-0 text-lg font-semibold">Room created 🎉</h2>
 
-                <div className={modalStyles.form} style={{ marginTop: 12 }}>
-                    <p style={{ margin: 0 }}>
-                        <strong>Room Name:</strong> {createdRoom?.name ?? ""}
-                    </p>
-                    <p style={{ margin: 0 }}>
-                        <strong>Join Code :</strong> {createdRoom?.code ?? ""}
-                    </p>
+                    <div className="space-y-2 text-sm">
+                        <p className="m-0">
+                            <span className="font-semibold">Room name:</span>{" "}
+                            {createdRoom?.name ?? ""}
+                        </p>
+                        <p className="m-0">
+                            <span className="font-semibold">Join code:</span>{" "}
+                            {createdRoom?.code ?? ""}
+                        </p>
 
-                    {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
+                        {modalError && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {modalError}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </Modal>
 
@@ -428,54 +411,40 @@ export default function RoomsHubPage() {
                 isOpen={joinOpen}
                 onClose={closeJoin}
                 footer={
-                    <button
-                        onClick={handleJoinRoom}
-                        disabled={loading}
-                        style={{
-                            width: 160,
-                            height: 40,
-                            borderRadius: 8,
-                            background: "#bdbdbd",
-                            border: "none",
-                            color: "#fff",
-                            cursor: "pointer",
-                        }}
-                    >
-                        Continue
-                    </button>
+                    <Button onClick={handleJoinRoom} disabled={loading} className="w-full sm:w-40">
+                        {loading ? "Joining…" : "Continue"}
+                    </Button>
                 }
             >
-                <h2 style={{ margin: 0 }}>Join a Room</h2>
+                <div className="space-y-4">
+                    <h2 className="m-0 text-lg font-semibold">Join a room</h2>
 
-                <div className={modalStyles.form}>
-                    <input
-                        className={modalStyles.input}
-                        value={joinCode}
-                        onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                        placeholder="Room Code"
-                        disabled={loading}
-                    />
-                    {modalError && <p style={{ color: "#b00020", margin: 0 }}>{modalError}</p>}
-                    {joinChecking && (
-                        <div style={{ fontSize: 12, opacity: 0.75 }}>
-                            Checking room privacy…
-                        </div>
-                    )}
-
-                    {joinNeedsPassword && (
-                        <input
-                            className={modalStyles.input}
-                            type="password"
-                            value={joinPassword}
-                            onChange={(e) => setJoinPassword(e.target.value)}
-                            placeholder="Room password"
+                    <div className="space-y-3">
+                        <Input
+                            value={joinCode}
+                            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                            placeholder="Room code"
                             disabled={loading}
-                            style={{ marginTop: 10 }}
                         />
-                    )}
+
+                        {modalError && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {modalError}
+                            </div>
+                        )}
+
+                        {joinNeedsPassword && (
+                            <Input
+                                type="password"
+                                value={joinPassword}
+                                onChange={(e) => setJoinPassword(e.target.value)}
+                                placeholder="Room password"
+                                disabled={loading}
+                            />
+                        )}
+                    </div>
                 </div>
             </Modal>
-
         </div>
     );
 }

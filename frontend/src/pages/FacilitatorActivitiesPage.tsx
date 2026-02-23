@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import styles from "../styles/Login.module.css";
 import { createFacilitatorActivity } from "../api/client";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 type Phase = {
     name: string;
@@ -9,6 +10,28 @@ type Phase = {
     duration_seconds: number;
     assessment_criteria: string[];
 };
+
+type ActivityType = "problem-solving" | "discussion" | "design critique";
+const ACTIVITY_TYPES: ActivityType[] = ["problem-solving", "discussion", "design critique"];
+
+function isActivityType(v: string): v is ActivityType {
+    return (ACTIVITY_TYPES as readonly string[]).includes(v);
+}
+
+function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+    const { className, ...rest } = props;
+    return (
+        <textarea
+            className={[
+                "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm",
+                "placeholder:text-muted-foreground",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                className ?? "",
+            ].join(" ")}
+            {...rest}
+        />
+    );
+}
 
 export default function FacilitatorActivitiesPage() {
     const navigate = useNavigate();
@@ -26,6 +49,7 @@ export default function FacilitatorActivitiesPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
+    const [activityType, setActivityType] = useState<ActivityType>("discussion");
 
     function updatePhase(idx: number, patch: Partial<Phase>) {
         setPhases((prev) => {
@@ -54,7 +78,9 @@ export default function FacilitatorActivitiesPage() {
         setCriteriaDraft("");
 
         // keep phases in sync: criteria stored inside phases for backend compatibility
-        setPhases((prev) => prev.map((p) => ({ ...p, assessment_criteria: [...(p.assessment_criteria ?? []), t] })));
+        setPhases((prev) =>
+            prev.map((p) => ({ ...p, assessment_criteria: [...(p.assessment_criteria ?? []), t] }))
+        );
     }
 
     function removeCriterion(idx: number) {
@@ -81,13 +107,14 @@ export default function FacilitatorActivitiesPage() {
             setError("Add at least one phase.");
             return;
         }
-        const invalidPhase = phases.find((p) => !p.name.trim() || !p.prompt.trim() || !(p.duration_seconds > 0));
+        const invalidPhase = phases.find(
+            (p) => !p.name.trim() || !p.prompt.trim() || !(p.duration_seconds > 0)
+        );
         if (invalidPhase) {
             setError("Each phase must have a name, a prompt, and a positive duration.");
             return;
         }
 
-        // Payload matches your ActivitySerializer fields
         const payload = {
             name: trimmedName,
             description: description.trim() || null,
@@ -116,227 +143,225 @@ export default function FacilitatorActivitiesPage() {
         }
     }
 
-    type ActivityType = "problem-solving" | "discussion" | "design critique";
-    const ACTIVITY_TYPES: ActivityType[] = ["problem-solving", "discussion", "design critique"];
-    const [activityType, setActivityType] = useState<ActivityType>("discussion");
-
-    function isActivityType(v: string): v is ActivityType {
-        return (ACTIVITY_TYPES as readonly string[]).includes(v);
-    }
-
     return (
-        <div className={styles.page}>
-            <div className={styles.rectangleParent}>
-                <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv} />
-                    <h2 className={styles.socialStudyTeammates}>Manage Activities</h2>
-                    <div className={styles.collaborativeLearningWith}>
-                        Create activities with phases, prompts, and assessment criteria
+        <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl space-y-6">
+                <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight">Manage activities</h1>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Create activities with phases, prompts, and assessment criteria
+                            </p>
+                        </div>
+
+                        <Button variant="secondary" onClick={() => navigate("/facilitator")} disabled={busy}>
+                            ← Back to dashboard
+                        </Button>
                     </div>
                 </div>
 
                 <div
-                    className={styles.membersListParent}
-                    style={{
-                        width: "100%",
-                        padding: 12,
-                        boxSizing: "border-box",
-                        display: "flex",
-                        flexDirection: "column",
-                    }}
+                    className="rounded-lg border border-border bg-background shadow-sm overflow-hidden flex flex-col"
+                    style={{ height: "clamp(520px, 72vh, 860px)" }}
                 >
-                    <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 10 }}>Create Activity</div>
-                    <div
-                        style={{
-                            flex: 1,
-                            overflowY: "auto",
-                            paddingRight: 6,
-                        }}
-                    >
-                        {error && <div className={styles.error}>{error}</div>}
-                        {success && <div style={{ textAlign: "center", opacity: 0.9 }}>{success}</div>}
+                    <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                        <h2 className="text-lg font-semibold">Create activity</h2>
+                        <span className="text-sm text-muted-foreground">
+                            {phases.length} phase{phases.length === 1 ? "" : "s"}
+                        </span>
+                    </div>
 
-                        <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Name</label>
-                        <input
-                            className={styles.searchInput}
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Root cause analysis"
-                            style={{ marginBottom: 10 }}
-                        />
-
-                        <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Description (optional)</label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="What is this activity for?"
-                            style={{
-                                width: "100%",
-                                minHeight: 70,
-                                borderRadius: 6,
-                                border: "1px solid #cfcfcf",
-                                padding: 10,
-                                marginBottom: 10,
-                                boxSizing: "border-box",
-                            }}
-                        />
-
-                        <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Activity type</label>
-                        <select
-                            className={styles.searchInput}
-                            value={activityType}
-                            onChange={(e) => {
-                                const v = e.target.value;
-                                if (isActivityType(v)) setActivityType(v);
-                            }}
-                            style={{ marginBottom: 12, height: 36 }}
-                        >
-                            <option value="problem-solving">Problem-Solving</option>
-                            <option value="discussion">Discussion</option>
-                            <option value="design critique">Design Critique</option>
-                        </select>
-
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Phases</div>
-
-                        <div style={{ display: "grid", gap: 8, marginBottom: 10 }}>
-                            {phases.map((p, idx) => (
-                                <div
-                                    key={idx}
-                                    style={{
-                                        background: "#f2efef",
-                                        border: "1px solid #cfcfcf",
-                                        borderRadius: 10,
-                                        padding: 10,
-                                    }}
-                                >
-                                    <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                                        <input
-                                            className={styles.searchInput}
-                                            value={p.name}
-                                            onChange={(e) => updatePhase(idx, { name: e.target.value })}
-                                            placeholder="Phase name"
-                                            style={{ height: 32 }}
-                                        />
-                                        <input
-                                            className={styles.searchInput}
-                                            value={String(p.duration_seconds)}
-                                            onChange={(e) => updatePhase(idx, { duration_seconds: Number(e.target.value) || 0 })}
-                                            placeholder="Seconds"
-                                            style={{ width: 120, height: 32 }}
-                                        />
-                                        <button
-                                            className={styles.primaryButton}
-                                            type="button"
-                                            style={{ width: 90, height: 32 }}
-                                            onClick={() => removePhase(idx)}
-                                            disabled={busy || phases.length <= 1}
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-
-                                    <label style={{ display: "block", fontSize: 12, marginBottom: 4 }}>Prompt</label>
-                                    <textarea
-                                        value={p.prompt}
-                                        onChange={(e) => updatePhase(idx, { prompt: e.target.value })}
-                                        placeholder="What should learners do/say in this phase?"
-                                        style={{
-                                            width: "100%",
-                                            minHeight: 60,
-                                            borderRadius: 6,
-                                            border: "1px solid #cfcfcf",
-                                            padding: 10,
-                                            boxSizing: "border-box",
-                                        }}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-
-                        <button
-                            className={styles.primaryButton}
-                            type="button"
-                            style={{ height: 36, width: "100%", marginBottom: 12 }}
-                            onClick={addPhase}
-                            disabled={busy}
-                        >
-                            + Add phase
-                        </button>
-
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Assessment criteria</div>
-                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                            <input
-                                className={styles.searchInput}
-                                value={criteriaDraft}
-                                onChange={(e) => setCriteriaDraft(e.target.value)}
-                                placeholder="e.g. Uses evidence to justify claims"
-                                style={{ height: 36 }}
-                            />
-                            <button
-                                className={styles.primaryButton}
-                                type="button"
-                                style={{ width: 120, height: 36 }}
-                                onClick={addCriterion}
-                                disabled={busy}
-                            >
-                                Add
-                            </button>
-                        </div>
-
-                        {globalCriteria.length === 0 ? (
-                            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 12 }}>No criteria added yet.</div>
-                        ) : (
-                            <div style={{ display: "grid", gap: 6, marginBottom: 12 }}>
-                                {globalCriteria.map((c, idx) => (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            background: "#f2efef",
-                                            border: "1px solid #cfcfcf",
-                                            borderRadius: 10,
-                                            padding: "8px 10px",
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                            gap: 8,
-                                        }}
-                                    >
-                                        <span style={{ fontSize: 13 }}>{c}</span>
-                                        <button
-                                            className={styles.primaryButton}
-                                            type="button"
-                                            style={{ width: 90, height: 32 }}
-                                            onClick={() => removeCriterion(idx)}
-                                            disabled={busy}
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                ))}
+                    <div className="flex-1 overflow-auto px-6 py-5 space-y-6">
+                        {error && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {error}
                             </div>
                         )}
 
-                        <button
-                            className={styles.primaryButton}
-                            type="button"
-                            style={{ height: 36, width: "100%" }}
-                            onClick={() => void submit()}
-                            disabled={busy}
-                        >
-                            {busy ? "Creating…" : "Create activity"}
-                        </button>
+                        {success && (
+                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                                {success}
+                            </div>
+                        )}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-sm font-medium">Name</label>
+                                <div className="mt-2">
+                                    <Input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="e.g. Root cause analysis"
+                                        disabled={busy}
+                                    />
+                                </div>
+                            </div>
 
+                            <div>
+                                <label className="text-sm font-medium">Description (optional)</label>
+                                <div className="mt-2">
+                                    <Textarea
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        placeholder="What is this activity for?"
+                                        rows={3}
+                                        disabled={busy}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Activity type</label>
+                                <div className="mt-2">
+                                    <select
+                                        className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-primary
+                               focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                        value={activityType}
+                                        onChange={(e) => {
+                                            const v = e.target.value;
+                                            if (isActivityType(v)) setActivityType(v);
+                                        }}
+                                        disabled={busy}
+                                    >
+                                        <option value="problem-solving">Problem-Solving</option>
+                                        <option value="discussion">Discussion</option>
+                                        <option value="design critique">Design Critique</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="text-base font-semibold">Phases</div>
+                                <Button variant="secondary" onClick={addPhase} disabled={busy}>
+                                    + Add phase
+                                </Button>
+                            </div>
+
+                            <div className="grid gap-3">
+                                {phases.map((p, idx) => (
+                                    <div key={idx} className="rounded-lg border border-border bg-background p-4">
+                                        <div className="flex gap-2 flex-wrap items-start">
+                                            <div className="flex-1 min-w-[200px]">
+                                                <label className="text-xs text-muted-foreground">Phase name</label>
+                                                <div className="mt-1">
+                                                    <Input
+                                                        value={p.name}
+                                                        onChange={(e) => updatePhase(idx, { name: e.target.value })}
+                                                        placeholder="e.g. understand"
+                                                        disabled={busy}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="w-40">
+                                                <label className="text-xs text-muted-foreground">Duration (seconds)</label>
+                                                <div className="mt-1">
+                                                    <Input
+                                                        value={String(p.duration_seconds)}
+                                                        onChange={(e) =>
+                                                            updatePhase(idx, { duration_seconds: Number(e.target.value) || 0 })
+                                                        }
+                                                        placeholder="Seconds"
+                                                        disabled={busy}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-5">
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => removePhase(idx)}
+                                                    disabled={busy || phases.length <= 1}
+                                                >
+                                                    Remove
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3">
+                                            <label className="text-xs text-muted-foreground">Prompt</label>
+                                            <div className="mt-1">
+                                                <Textarea
+                                                    value={p.prompt}
+                                                    onChange={(e) => updatePhase(idx, { prompt: e.target.value })}
+                                                    placeholder="What should learners do/say in this phase?"
+                                                    rows={3}
+                                                    disabled={busy}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {p.assessment_criteria?.length ? (
+                                            <div className="mt-3 text-xs text-muted-foreground">
+                                                Criteria attached:{" "}
+                                                <span className="font-medium text-foreground">
+                                                    {p.assessment_criteria.length}
+                                                </span>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Criteria */}
+                        <div className="space-y-3">
+                            <div className="text-base font-semibold">Assessment criteria</div>
+
+                            <div className="flex gap-2 flex-wrap">
+                                <div className="flex-1 min-w-[240px]">
+                                    <Input
+                                        value={criteriaDraft}
+                                        onChange={(e) => setCriteriaDraft(e.target.value)}
+                                        placeholder="e.g. Uses evidence to justify claims"
+                                        disabled={busy}
+                                    />
+                                </div>
+                                <Button variant="secondary" onClick={addCriterion} disabled={busy}>
+                                    Add
+                                </Button>
+                            </div>
+
+                            {globalCriteria.length === 0 ? (
+                                <div className="text-sm text-muted-foreground">
+                                    No criteria added yet.
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {globalCriteria.map((c, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1"
+                                        >
+                                            <span className="text-sm">{c}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCriterion(idx)}
+                                                disabled={busy}
+                                                className="h-6 w-6 rounded-full hover:bg-muted/60 text-muted-foreground hover:text-foreground
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-primary
+                                   focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                                aria-label="Remove criterion"
+                                                title="Remove"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-border bg-background flex items-center justify-end">
+                        <Button onClick={() => void submit()} disabled={busy}>
+                            {busy ? "Creating…" : "Create activity"}
+                        </Button>
                     </div>
                 </div>
-                <button
-                    className={styles.primaryButton}
-                    type="button"
-                    style={{ height: 36, width: "100%", marginTop: 10 }}
-                    onClick={() => navigate("/facilitator")}
-                    disabled={busy}
-                >
-                    ← Back to dashboard
-                </button>
             </div>
         </div>
     );

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import styles from "../styles/Login.module.css";
 import Modal from "../components/Modal";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
 type ActivityState = {
     is_running: boolean;
@@ -36,7 +37,6 @@ type MessageItem =
         created_at: string;
         phase_index: number | null;
     };
-
 
 type MessagesResponse = {
     room: string;
@@ -73,19 +73,17 @@ export default function ActivityWorkspacePage() {
     const navigate = useNavigate();
 
     const pollRef = useRef<number | null>(null);
+
     const [activity, setActivity] = useState<ActivityState | null>(null);
     const [phaseIndex, setPhaseIndex] = useState<number | null>(null);
-    const [messages, setMessages] = useState<MessageItem[]>([]);
+    const [messages, setMessages] = useState<Extract<MessageItem, { type: "post" }>[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const pageLoadedAtRef = useRef<number>(Date.now());
-    const [showWhy, setShowWhy] = useState(false);
-
-
-
 
     const [input, setInput] = useState("");
     const [timer, setTimer] = useState<number | null>(null);
+
     const [finalAnswer, setFinalAnswer] = useState<FinalAnswerState | null>(null);
     const [finalAnswerLoading, setFinalAnswerLoading] = useState(false);
     const [finalAnswerError, setFinalAnswerError] = useState<string | null>(null);
@@ -97,6 +95,31 @@ export default function ActivityWorkspacePage() {
     const [activeIntervention, setActiveIntervention] = useState<
         Extract<MessageItem, { type: "intervention" }> | null
     >(null);
+    const [showWhy, setShowWhy] = useState(false);
+
+    // NEW: scroll handling
+    const scrollRef = useRef<HTMLDivElement | null>(null);
+    const bottomRef = useRef<HTMLDivElement | null>(null);
+    const shouldAutoScrollRef = useRef(true);
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+
+        const onScroll = () => {
+            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+            shouldAutoScrollRef.current = distanceFromBottom < 120;
+        };
+
+        el.addEventListener("scroll", onScroll);
+        onScroll();
+        return () => el.removeEventListener("scroll", onScroll);
+    }, []);
+
+    useEffect(() => {
+        if (!shouldAutoScrollRef.current) return;
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages.length]);
 
     async function fetchStateAndMessages() {
         if (!code) return;
@@ -128,9 +151,7 @@ export default function ActivityWorkspacePage() {
             return created >= pageLoadedAtRef.current;
         });
 
-        const newlyArrived = freshInterventions.filter(
-            (i) => !seenInterventionsRef.current.has(i.id)
-        );
+        const newlyArrived = freshInterventions.filter((i) => !seenInterventionsRef.current.has(i.id));
 
         if (newlyArrived.length) {
             newlyArrived.forEach((i) => seenInterventionsRef.current.add(i.id));
@@ -150,10 +171,12 @@ export default function ActivityWorkspacePage() {
         try {
             setFinalAnswerLoading(true);
             setFinalAnswerError(null);
+
             const params = new URLSearchParams({ activity_run_id: activityRunId });
-            const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/final-answer/?${params.toString()}`, {
-                credentials: "include",
-            });
+            const res = await fetch(
+                `/api/rooms/${encodeURIComponent(code)}/final-answer/?${params.toString()}`,
+                { credentials: "include" }
+            );
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
@@ -169,6 +192,7 @@ export default function ActivityWorkspacePage() {
         }
     }
 
+    // Intervention queue advance
     useEffect(() => {
         if (activeIntervention) return;
         if (interventionQueue.length === 0) return;
@@ -178,15 +202,7 @@ export default function ActivityWorkspacePage() {
         setInterventionQueue((q) => q.slice(1));
     }, [interventionQueue, activeIntervention]);
 
-
-    useEffect(() => {
-        if (activeIntervention) return;
-        if (interventionQueue.length === 0) return;
-
-        setActiveIntervention(interventionQueue[0]);
-        setInterventionQueue((q) => q.slice(1));
-    }, [interventionQueue, activeIntervention]);
-
+    // Poll messages
     useEffect(() => {
         let cancelled = false;
 
@@ -202,7 +218,7 @@ export default function ActivityWorkspacePage() {
             }
         }
 
-        initialLoad();
+        void initialLoad();
 
         if (pollRef.current) window.clearInterval(pollRef.current);
         pollRef.current = window.setInterval(() => {
@@ -216,6 +232,7 @@ export default function ActivityWorkspacePage() {
         };
     }, [code]);
 
+    // Countdown tick
     useEffect(() => {
         if (!activity?.phase_ends_at) return;
 
@@ -226,11 +243,11 @@ export default function ActivityWorkspacePage() {
         return () => window.clearInterval(id);
     }, [activity?.phase_ends_at]);
 
+    // Load final answer options after finish
     useEffect(() => {
         if (!activity?.finished || !activity.activity_run_id) return;
         void fetchFinalAnswer(activity.activity_run_id);
     }, [activity?.finished, activity?.activity_run_id]);
-
 
     async function sendMessage() {
         if (!code) return;
@@ -244,9 +261,9 @@ export default function ActivityWorkspacePage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content }),
             });
+
             if (res.status === 422) {
                 const intervention = await res.json();
-
                 setInterventionQueue((q) => [...q, intervention]);
                 setInput("");
                 return;
@@ -270,6 +287,7 @@ export default function ActivityWorkspacePage() {
         try {
             setFinalAnswerLoading(true);
             setFinalAnswerError(null);
+
             const res = await fetch(`/api/rooms/${encodeURIComponent(code)}/final-answer/`, {
                 method: "POST",
                 credentials: "include",
@@ -290,52 +308,100 @@ export default function ActivityWorkspacePage() {
         }
     }
 
-
-    const phaseLabel =
-        activity?.finished ? "Finished" : activity?.phase_name ?? "Lobby";
+    const phaseLabel = activity?.finished ? "Finished" : activity?.phase_name ?? "Lobby";
 
     return (
-        <div className={styles.page}>
-            <div className={styles.rectangleParent}>
-                <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv} />
-                    <h2 className={styles.socialStudyTeammates}>
-                        {activity?.activity_name ?? "Activity"}
-                    </h2>
-                    <div className={styles.collaborativeLearningWith}>
-                        Room: {code ?? ""} • Phase: {phaseLabel}
-                        {timer !== null && !activity?.finished && ` • ${timer}s left`}
+        <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl space-y-6">
+                <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight truncate">
+                                {activity?.activity_name ?? "Activity"}
+                            </h1>
+
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Room: <span className="font-medium text-foreground">{code ?? ""}</span>{" "}
+                                • Phase: <span className="font-medium text-foreground">{phaseLabel}</span>
+                                {timer !== null && !activity?.finished && (
+                                    <span className="ml-2 text-xs rounded-full border border-border bg-muted/40 px-2 py-0.5">
+                                        {timer}s left
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+
+                        <div className="flex gap-2">
+                            {activity?.finished ? (
+                                <>
+                                    <Button variant="secondary" onClick={() => navigate(`/room/${code}`)}>
+                                        Back to room
+                                    </Button>
+                                    <Button onClick={() => navigate(`/room/${code}/summary`)}>
+                                        View summary
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button
+                                    variant="secondary"
+                                    onClick={() =>
+                                        navigate(`/rooms`)
+                                    }
+                                >
+                                    Exit workspace
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <div className={styles.chatCard} >
-                    <div className={styles.membersHeading}>Prompt</div>
-                    <div className={styles.promptText}>
+                <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <h2 className="text-lg font-semibold">Prompt</h2>
+                        <span className="text-xs rounded-full border border-border bg-muted/40 px-2 py-1 text-muted-foreground">
+                            Phase {((activity?.phase_index ?? 0) + 1)}/{activity?.total_phases ?? "?"}
+                        </span>
+                    </div>
+                    <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
                         {activity?.phase_prompt ?? "Waiting…"}
+                    </p>
+                </div>
+
+                <div
+                    className="rounded-lg border border-border bg-background shadow-sm overflow-hidden flex flex-col"
+                    style={{ height: "clamp(420px, 65vh, 760px)" }}
+                >
+                    <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                        <h2 className="text-lg font-semibold">Workspace</h2>
+                        <span className="text-sm text-muted-foreground">
+                            {loading ? "Loading…" : `${messages.length} messages`}
+                        </span>
                     </div>
 
-                    <div className={styles.messagesScroll}>
-                        {loading && <div>Loading…</div>}
-                        {error && <div style={{ color: "crimson" }}>{error}</div>}
-                        {!loading && messages.length === 0 && <div>No messages yet.</div>}
+                    <div ref={scrollRef} className="flex-1 overflow-auto px-6 py-4 space-y-4">
+                        {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
+
+                        {error && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {error}
+                            </div>
+                        )}
+
+                        {!loading && messages.length === 0 && (
+                            <div className="text-sm text-muted-foreground">No messages yet.</div>
+                        )}
 
                         {messages.map((m) => (
-                            <div key={`${m.type}-${m.id}`} style={{ marginBottom: 10 }}>
-                                <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                                    {m.author}
-                                    <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 12 }}>
+                            <div key={`post-${m.id}`} className="rounded-lg border border-border bg-muted/20 p-3">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="font-semibold">{m.author}</div>
+                                    <span className="text-xs text-muted-foreground">
                                         {new Date(m.created_at).toLocaleTimeString()}
                                     </span>
 
-                                    {m.type === "post" && m.lacks_evidence && (
+                                    {m.lacks_evidence && (
                                         <span
-                                            style={{
-                                                fontSize: 12,
-                                                padding: "2px 8px",
-                                                borderRadius: 999,
-                                                border: "1px solid #d9a300",
-                                                background: "rgba(217,163,0,0.12)",
-                                            }}
+                                            className="text-xs rounded-full border border-amber-300 bg-amber-200/30 px-2 py-0.5"
                                             title="This message doesn’t include evidence, a source, numbers, or clear reasoning."
                                         >
                                             Lacks evidence
@@ -343,36 +409,32 @@ export default function ActivityWorkspacePage() {
                                     )}
                                 </div>
 
-                                <div style={{ opacity: 0.9 }}>{m.content}</div>
-
-                                {m.type === "intervention" && (
-                                    <div style={{ marginTop: 4, fontSize: 12, opacity: 0.75 }}>
-                                        Rule: {m.rule_name} • {m.explanation}
-                                    </div>
-                                )}
+                                <div className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">{m.content}</div>
                             </div>
                         ))}
 
                         {activity?.finished && (
-                            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #e0e0e0" }}>
-                                <div className={styles.membersHeading} style={{ marginBottom: 8, fontSize: 22 }}>
-                                    Choose Final Conclusion
-                                </div>
+                            <div className="mt-6 pt-5 border-t border-border space-y-3">
+                                <h3 className="text-lg font-semibold">Choose final conclusion</h3>
 
                                 {finalAnswerError && (
-                                    <div className={styles.error} style={{ marginBottom: 8 }}>{finalAnswerError}</div>
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                        {finalAnswerError}
+                                    </div>
                                 )}
 
-                                {finalAnswerLoading && <div style={{ opacity: 0.8 }}>Loading options…</div>}
+                                {finalAnswerLoading && (
+                                    <div className="text-sm text-muted-foreground">Loading options…</div>
+                                )}
 
                                 {!finalAnswerLoading && finalAnswer?.posts?.length === 0 && (
-                                    <div style={{ opacity: 0.7, fontStyle: "italic" }}>
+                                    <div className="text-sm text-muted-foreground italic">
                                         No messages were posted in the decide phase.
                                     </div>
                                 )}
 
                                 {finalAnswer?.posts?.length ? (
-                                    <div style={{ display: "grid", gap: 10 }}>
+                                    <div className="grid gap-3">
                                         {finalAnswer.posts.map((post) => {
                                             const isUserVote = finalAnswer.user_vote_post_id === post.id;
                                             const isFinal = finalAnswer.final_answer_post_id === post.id;
@@ -380,34 +442,29 @@ export default function ActivityWorkspacePage() {
                                             return (
                                                 <div
                                                     key={post.id}
-                                                    style={{
-                                                        border: "1px solid #ddd",
-                                                        borderRadius: 6,
-                                                        padding: 10,
-                                                        background: isFinal ? "#e8f4e8" : "#fff",
-                                                    }}
+                                                    className={[
+                                                        "rounded-lg border p-4",
+                                                        isFinal ? "border-emerald-200 bg-emerald-50" : "border-border bg-background",
+                                                    ].join(" ")}
                                                 >
-                                                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{post.author}</div>
-                                                    <div style={{ marginBottom: 8 }}>{post.content}</div>
-                                                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                                                        <span style={{ fontSize: 13, opacity: 0.8 }}>
+                                                    <div className="font-semibold">{post.author}</div>
+                                                    <div className="mt-2 text-sm whitespace-pre-wrap">{post.content}</div>
+
+                                                    <div className="mt-3 flex items-center gap-3 flex-wrap">
+                                                        <span className="text-xs text-muted-foreground">
                                                             {post.votes} / {finalAnswer.majority_needed || "majority"} votes
                                                         </span>
-                                                        {!isFinal && (
-                                                            <button
-                                                                className={styles.primaryButton}
-                                                                type="button"
-                                                                style={{ height: 30, padding: "0 10px" }}
+
+                                                        {!isFinal ? (
+                                                            <Button
+                                                                variant={isUserVote ? "secondary" : "primary"}
                                                                 onClick={() => handleVote(post.id)}
                                                                 disabled={finalAnswerLoading}
                                                             >
                                                                 {isUserVote ? "Voted" : "Vote"}
-                                                            </button>
-                                                        )}
-                                                        {isFinal && (
-                                                            <span style={{ fontSize: 12, fontWeight: 700, color: "#2e7d32" }}>
-                                                                Finalized
-                                                            </span>
+                                                            </Button>
+                                                        ) : (
+                                                            <span className="text-xs font-semibold text-emerald-700">Finalized</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -417,152 +474,98 @@ export default function ActivityWorkspacePage() {
                                 ) : null}
                             </div>
                         )}
+
+                        <div ref={bottomRef} />
                     </div>
 
-                    <div className={styles.composerRow}>
+                    <div className="px-6 py-4 border-t border-border bg-background">
                         {activity?.finished ? (
-                            <>
-                                <button
-                                    className={styles.primaryButton}
-                                    type="button"
-                                    style={{ flex: 1 }}
-                                    onClick={() => navigate(`/room/${code}/summary`)}
-                                >
-                                    View Session Summary
-                                </button>
-                                <button
-                                    className={styles.primaryButton}
-                                    type="button"
-                                    style={{ flex: 1 }}
-                                    onClick={() => navigate(`/room/${code}`)}
-                                >
-                                    Back to Room
-                                </button>
-                            </>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <Button variant="secondary" onClick={() => navigate(`/room/${code}/summary`)}>
+                                    View session summary
+                                </Button>
+                                <Button onClick={() => navigate(`/room/${code}`)}>Back to room</Button>
+                            </div>
                         ) : (
-                            <>
-                                <input
+                            <div className="flex gap-2">
+                                <Input
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     placeholder="Write a message…"
-                                    style={{ flex: 1, height: 38, padding: "0 10px", borderRadius: 6, border: "1px solid #ccc" }}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") sendMessage();
                                     }}
                                 />
-                                <button
-                                    className={styles.primaryButton}
-                                    type="button"
-                                    onClick={sendMessage}
-                                >
-                                    Send
-                                </button>
-                            </>
+                                <Button onClick={sendMessage}>Send</Button>
+                            </div>
                         )}
                     </div>
+                </div>
 
-                    <Modal
-                        isOpen={!!activeIntervention}
-                        onClose={() => {
-                            setActiveIntervention(null);
-                            setShowWhy(false);
-                        }}
-                        footer={
-                            <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-                                {!showWhy ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowWhy(true)}
-                                        style={{
-                                            height: 38,
-                                            padding: "0 14px",
-                                            borderRadius: 6,
-                                            border: "1px solid #ccc",
-                                            background: "white",
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        Why am I seeing this?
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowWhy(false)}
-                                        style={{
-                                            height: 38,
-                                            padding: "0 14px",
-                                            borderRadius: 6,
-                                            border: "1px solid #ccc",
-                                            background: "white",
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        Back
-                                    </button>
-                                )}
+                <Modal
+                    isOpen={!!activeIntervention}
+                    onClose={() => {
+                        setActiveIntervention(null);
+                        setShowWhy(false);
+                    }}
+                    footer={
+                        <>
+                            {!showWhy ? (
+                                <Button variant="secondary" type="button" onClick={() => setShowWhy(true)}>
+                                    Why am I seeing this?
+                                </Button>
+                            ) : (
+                                <Button variant="secondary" type="button" onClick={() => setShowWhy(false)}>
+                                    Back
+                                </Button>
+                            )}
 
-                                <div style={{ display: "flex", gap: 10 }}>
-                                    {interventionQueue.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setActiveIntervention(null);
-                                                setShowWhy(false);
-                                            }}
-                                            style={{
-                                                height: 38,
-                                                padding: "0 14px",
-                                                borderRadius: 6,
-                                                border: "1px solid #ccc",
-                                                background: "white",
-                                                cursor: "pointer",
-                                            }}
-                                        >
-                                            Next ({interventionQueue.length})
-                                        </button>
-                                    )}
-
-                                    <button
-                                        className={styles.primaryButton}
+                            <div className="flex gap-2">
+                                {interventionQueue.length > 0 && (
+                                    <Button
+                                        variant="secondary"
                                         type="button"
                                         onClick={() => {
                                             setActiveIntervention(null);
                                             setShowWhy(false);
                                         }}
                                     >
-                                        OK
-                                    </button>
-                                </div>
-                            </div>
-                        }
-                    >
-                        {activeIntervention && (
-                            <div>
-                                <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>
-                                    {showWhy ? "Why am I seeing this?" : activeIntervention.author}
-                                </div>
-
-                                {!showWhy ? (
-                                    <div style={{ opacity: 0.95 }}>
-                                        {activeIntervention.content}
-                                    </div>
-                                ) : (
-                                    <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.5 }}>
-                                        {activeIntervention.explanation}
-
-                                        <div style={{ marginTop: 12, fontSize: 12, opacity: 0.6 }}>
-                                            Rule: {activeIntervention.rule_name}
-                                        </div>
-                                    </div>
+                                        Next ({interventionQueue.length})
+                                    </Button>
                                 )}
+
+                                <Button
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveIntervention(null);
+                                        setShowWhy(false);
+                                    }}
+                                >
+                                    OK
+                                </Button>
                             </div>
-                        )}
-                    </Modal>
+                        </>
+                    }
+                >
+                    {activeIntervention && (
+                        <div className="space-y-3">
+                            <div className="font-semibold text-base">
+                                {showWhy ? "Why am I seeing this?" : activeIntervention.author}
+                            </div>
 
-
-
-
-                </div>
+                            {!showWhy ? (
+                                <div className="text-sm leading-relaxed whitespace-pre-wrap">{activeIntervention.content}</div>
+                            ) : (
+                                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                    {activeIntervention.explanation}
+                                    <div className="mt-3 text-xs text-muted-foreground/80">
+                                        Rule: {activeIntervention.rule_name}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </Modal>
             </div>
         </div>
     );

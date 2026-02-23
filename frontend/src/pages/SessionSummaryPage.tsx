@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import styles from "../styles/Login.module.css";
+import { Button } from "../components/ui/button";
 
 type Member = {
     user_id: number;
@@ -40,7 +40,6 @@ type ActionItem = {
     author: string;
     timestamp: string;
 };
-
 
 type SessionSummaryData = {
     room_code: string;
@@ -94,13 +93,17 @@ export default function SessionSummaryPage() {
     const [summary, setSummary] = useState<SessionSummaryData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"overview" | "participation" | "process" | "quality">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "participation" | "process" | "quality">(
+        "overview"
+    );
 
     async function fetchSummary() {
         if (!code) return;
 
         try {
             setLoading(true);
+            setError(null);
+
             const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/`, {
                 credentials: "include",
             });
@@ -124,14 +127,16 @@ export default function SessionSummaryPage() {
         void fetchSummary();
     }, [code]);
 
-
     async function handleExportPDF() {
         if (!code) return;
 
         try {
-            const res = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/export/`, {
-                credentials: "include",
-            });
+            setError(null);
+
+            const res = await fetch(
+                `${API_BASE_URL}/api/rooms/${encodeURIComponent(code)}/summary/export/`,
+                { credentials: "include" }
+            );
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
@@ -151,12 +156,23 @@ export default function SessionSummaryPage() {
         }
     }
 
+    const tabs = useMemo(() => {
+        const base: Array<"overview" | "participation" | "process" | "quality"> = [
+            "overview",
+            "participation",
+            "process",
+        ];
+        if (summary?.is_facilitator) base.push("quality");
+        return base;
+    }, [summary?.is_facilitator]);
 
     if (loading) {
         return (
-            <div className={styles.page}>
-                <div className={styles.rectangleParent}>
-                    <div style={{ textAlign: "center", padding: 40 }}>Loading summary...</div>
+            <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+                <div className="mx-auto w-full max-w-5xl">
+                    <div className="rounded-lg border border-border bg-background p-10 text-center text-sm text-muted-foreground shadow-sm">
+                        Loading summary…
+                    </div>
                 </div>
             </div>
         );
@@ -164,12 +180,12 @@ export default function SessionSummaryPage() {
 
     if (error) {
         return (
-            <div className={styles.page}>
-                <div className={styles.rectangleParent}>
-                    <div className={styles.error} style={{ padding: 20 }}>{error}</div>
-                    <button className={styles.primaryButton} onClick={() => navigate(`/room/${code}`)}>
-                        Back to Room
-                    </button>
+            <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+                <div className="mx-auto w-full max-w-5xl space-y-4">
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {error}
+                    </div>
+                    <Button onClick={() => navigate(`/room/${code}`)}>Back to room</Button>
                 </div>
             </div>
         );
@@ -177,128 +193,171 @@ export default function SessionSummaryPage() {
 
     if (!summary) return null;
 
-    const tabs = ["overview", "participation", "process"];
-    if (summary.is_facilitator) tabs.push("quality");
-
     return (
-        <div className={styles.page}>
-            <div className={styles.rectangleParent}>
-                {/* Header */}
-                <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv} />
-                    <h2 className={styles.socialStudyTeammates}>Session Summary</h2>
-                    <div className={styles.collaborativeLearningWith}>
-                        {summary.activity_name} - Room {summary.room_code}
+        <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl space-y-6">
+                <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight">Session summary</h1>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                <span className="font-medium text-foreground">{summary.activity_name ?? "Activity"}</span>{" "}
+                                · Room{" "}
+                                <span className="font-medium text-foreground">{summary.room_code}</span>
+                            </p>
+                        </div>
+
+                        <div className="flex gap-2 flex-wrap">
+                            <Button variant="secondary" onClick={() => navigate(`/room/${code}`)}>
+                                Back to room
+                            </Button>
+                            <Button variant="secondary" onClick={() => void fetchSummary()}>
+                                Refresh
+                            </Button>
+                            {summary.is_facilitator && (
+                                <Button onClick={handleExportPDF}>Export PDF</Button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-2">
+                        {tabs.map((tab) => {
+                            const active = activeTab === tab;
+                            return (
+                                <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab)}
+                                    className={[
+                                        "px-3 py-2 rounded-full border text-sm transition",
+                                        active
+                                            ? "border-primary bg-primary/10 text-primary"
+                                            : "border-border bg-background hover:bg-muted/40 text-foreground",
+                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                                    ].join(" ")}
+                                >
+                                    {tabLabel(tab)}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
-                {/* Tab Navigation */}
-                <div style={{ display: "flex", gap: 8, width: "100%" }}>
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab as typeof activeTab)}
-                            style={{
-                                flex: 1,
-                                padding: "10px",
-                                border: "none",
-                                borderRadius: 6,
-                                background: activeTab === tab ? "#606060" : "#f2efef",
-                                color: activeTab === tab ? "white" : "black",
-                                cursor: "pointer",
-                                fontWeight: activeTab === tab ? 600 : 400,
-                            }}
-                        >
-                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                    ))}
-                </div>
+                <div
+                    className="rounded-lg border border-border bg-background shadow-sm overflow-hidden flex flex-col"
+                    style={{ height: "clamp(520px, 72vh, 900px)" }}
+                >
+                    <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                        <h2 className="text-lg font-semibold">{tabLabel(activeTab)}</h2>
+                        <span className="text-sm text-muted-foreground">
+                            {summary.is_facilitator ? "Facilitator view" : "Learner view"}
+                        </span>
+                    </div>
 
-                {/* Content Area */}
-                <div className={styles.membersListParent} style={{ padding: 20 }}>
-                    {activeTab === "overview" && <OverviewTab summary={summary} />}
-                    {activeTab === "participation" && <ParticipationTab summary={summary} />}
-                    {activeTab === "process" && <ProcessTab summary={summary} />}
-                    {activeTab === "quality" && summary.quality && <QualityTab quality={summary.quality} />}
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: "flex", gap: 10, width: "100%" }}>
-                    <button className={styles.primaryButton} onClick={() => navigate(`/room/${code}`)}>
-                        Back to Room
-                    </button>
-                    {summary.is_facilitator && (
-                        <button className={styles.primaryButton} onClick={handleExportPDF}>
-                            Export PDF
-                        </button>
-                    )}
+                    <div className="flex-1 overflow-auto px-6 py-5">
+                        {activeTab === "overview" && <OverviewTab summary={summary} />}
+                        {activeTab === "participation" && <ParticipationTab summary={summary} />}
+                        {activeTab === "process" && <ProcessTab summary={summary} />}
+                        {activeTab === "quality" && summary.quality && <QualityTab quality={summary.quality} />}
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-// ===== Sub-components for each tab =====
+
+function tabLabel(tab: "overview" | "participation" | "process" | "quality") {
+    return tab.charAt(0).toUpperCase() + tab.slice(1);
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+    return (
+        <h3 className="mt-6 mb-3 text-base font-semibold border-b border-border pb-2">
+            {children}
+        </h3>
+    );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+    return (
+        <div className="rounded-lg border border-border bg-muted/20 p-4 text-center">
+            <div className="text-2xl font-semibold">{value}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+        </div>
+    );
+}
+
 
 function OverviewTab({ summary }: { summary: SessionSummaryData }) {
     return (
-        <div style={{ overflow: "auto", height: "100%", padding: "0 10px" }}>
-            <SectionHeading>Key Decisions</SectionHeading>
+        <div className="space-y-2">
+            <SectionHeading>Key decisions</SectionHeading>
             {summary.decisions.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                <ul className="pl-5 text-sm text-muted-foreground space-y-2">
                     {summary.decisions.map((d, i) => (
-                        <li key={i} style={{ marginBottom: 8 }}>
-                            <strong>{d.author}</strong> ({d.phase}): {d.content}
+                        <li key={i}>
+                            <span className="font-medium text-foreground">{d.author}</span>{" "}
+                            <span className="text-muted-foreground">({d.phase})</span>: {d.content}
                         </li>
                     ))}
                 </ul>
             ) : (
-                <p style={{ opacity: 0.7, fontStyle: "italic" }}>No explicit decisions captured.</p>
+                <p className="text-sm text-muted-foreground italic">No explicit decisions captured.</p>
             )}
 
-            <SectionHeading>Action Items</SectionHeading>
+            <SectionHeading>Action items</SectionHeading>
             {summary.action_items.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                <ul className="pl-5 text-sm text-muted-foreground space-y-2">
                     {summary.action_items.map((item, i) => (
-                        <li key={i} style={{ marginBottom: 8 }}>
-                            <strong>{item.author}</strong>: {item.content}
+                        <li key={i}>
+                            <span className="font-medium text-foreground">{item.author}</span>: {item.content}
                         </li>
                     ))}
                 </ul>
             ) : (
-                <p style={{ opacity: 0.7, fontStyle: "italic" }}>No action items identified.</p>
+                <p className="text-sm text-muted-foreground italic">No action items identified.</p>
             )}
 
-            <SectionHeading>Unanswered Questions</SectionHeading>
+            <SectionHeading>Unanswered questions</SectionHeading>
             {summary.unanswered_questions.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                <ul className="pl-5 text-sm text-muted-foreground space-y-2">
                     {summary.unanswered_questions.map((q, i) => (
-                        <li key={i} style={{ marginBottom: 8 }}>
-                            <strong>{q.author}</strong>: {q.content}
+                        <li key={i}>
+                            <span className="font-medium text-foreground">{q.author}</span>: {q.content}
                         </li>
                     ))}
                 </ul>
             ) : (
-                <p style={{ opacity: 0.7, fontStyle: "italic" }}>All questions were addressed.</p>
+                <p className="text-sm text-muted-foreground italic">All questions were addressed.</p>
             )}
 
-            <SectionHeading>Group Outcome</SectionHeading>
+            <SectionHeading>Group outcome</SectionHeading>
             {summary.final_outcome ? (
-                <blockquote style={{ borderLeft: "3px solid #606060", paddingLeft: 12, margin: "8px 0", background: "#f9f9f9", padding: "12px" }}>
-                    "{summary.final_outcome.content}" - <em>{summary.final_outcome.author}</em>
+                <blockquote className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                    <span className="text-foreground">“{summary.final_outcome.content}”</span>{" "}
+                    — <em>{summary.final_outcome.author}</em>
                 </blockquote>
             ) : (
-                <p style={{ opacity: 0.7, fontStyle: "italic" }}>No final outcome recorded.</p>
+                <p className="text-sm text-muted-foreground italic">No final outcome recorded.</p>
             )}
 
-            {/* Personal contribution for learners */}
             {summary.personal_contribution && (
                 <>
-                    <SectionHeading>Your Contribution</SectionHeading>
-                    <div style={{ background: "#e8f4e8", padding: 12, borderRadius: 6 }}>
-                        <p style={{ margin: "4px 0" }}><strong>Posts:</strong> {summary.personal_contribution.post_count}</p>
-                        <p style={{ margin: "4px 0" }}><strong>Contribution:</strong> {summary.personal_contribution.contribution_percentage.toFixed(1)}%</p>
-                        <p style={{ margin: "4px 0" }}><strong>Evidence issues:</strong> {summary.personal_contribution.lacks_evidence_count}</p>
+                    <SectionHeading>Your contribution</SectionHeading>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
+                        <div>
+                            <span className="font-medium">Posts:</span>{" "}
+                            {summary.personal_contribution.post_count}
+                        </div>
+                        <div className="mt-1">
+                            <span className="font-medium">Contribution:</span>{" "}
+                            {summary.personal_contribution.contribution_percentage.toFixed(1)}%
+                        </div>
+                        <div className="mt-1">
+                            <span className="font-medium">Evidence issues:</span>{" "}
+                            {summary.personal_contribution.lacks_evidence_count}
+                        </div>
                     </div>
                 </>
             )}
@@ -306,37 +365,38 @@ function OverviewTab({ summary }: { summary: SessionSummaryData }) {
     );
 }
 
+
 function ParticipationTab({ summary }: { summary: SessionSummaryData }) {
     const { participation } = summary;
 
     return (
-        <div style={{ overflow: "auto", height: "100%", padding: "0 10px" }}>
+        <div>
             <SectionHeading>Overview</SectionHeading>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                <StatCard label="Total Posts" value={participation.total_posts} />
-                <StatCard label="Total Interventions" value={participation.total_interventions} />
-                <StatCard label="Turn Balance" value={`${(participation.turn_balance_score * 100).toFixed(0)}%`} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <StatCard label="Total posts" value={participation.total_posts} />
+                <StatCard label="Total interventions" value={participation.total_interventions} />
+                <StatCard label="Turn balance" value={`${(participation.turn_balance_score * 100).toFixed(0)}%`} />
                 <StatCard label="Participants" value={participation.members.length} />
             </div>
 
-            <SectionHeading>Per-Member Breakdown</SectionHeading>
-            <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                    <thead>
-                        <tr style={{ background: "#606060", color: "white" }}>
-                            <th style={{ padding: 8, textAlign: "left" }}>Name</th>
-                            <th style={{ padding: 8, textAlign: "center" }}>Posts</th>
-                            <th style={{ padding: 8, textAlign: "center" }}>%</th>
-                            <th style={{ padding: 8, textAlign: "center" }}>Evidence Issues</th>
+            <SectionHeading>Per-member breakdown</SectionHeading>
+            <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="min-w-full text-sm">
+                    <thead className="bg-muted/30">
+                        <tr>
+                            <th className="px-3 py-2 text-left border-b border-border">Name</th>
+                            <th className="px-3 py-2 text-center border-b border-border">Posts</th>
+                            <th className="px-3 py-2 text-center border-b border-border">%</th>
+                            <th className="px-3 py-2 text-center border-b border-border">Evidence issues</th>
                         </tr>
                     </thead>
                     <tbody>
                         {participation.members.map((m) => (
-                            <tr key={m.user_id} style={{ borderBottom: "1px solid #ddd" }}>
-                                <td style={{ padding: 8 }}>{m.display_name}</td>
-                                <td style={{ padding: 8, textAlign: "center" }}>{m.post_count}</td>
-                                <td style={{ padding: 8, textAlign: "center" }}>{m.contribution_percentage.toFixed(1)}%</td>
-                                <td style={{ padding: 8, textAlign: "center" }}>{m.lacks_evidence_count}</td>
+                            <tr key={m.user_id} className="border-b border-border">
+                                <td className="px-3 py-2">{m.display_name}</td>
+                                <td className="px-3 py-2 text-center">{m.post_count}</td>
+                                <td className="px-3 py-2 text-center">{m.contribution_percentage.toFixed(1)}%</td>
+                                <td className="px-3 py-2 text-center">{m.lacks_evidence_count}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -346,116 +406,111 @@ function ParticipationTab({ summary }: { summary: SessionSummaryData }) {
     );
 }
 
+
 function ProcessTab({ summary }: { summary: SessionSummaryData }) {
     const { process } = summary;
 
     return (
-        <div style={{ overflow: "auto", height: "100%", padding: "0 10px" }}>
-            <SectionHeading>Phase Breakdown</SectionHeading>
-            {process.phases.map((phase) => (
-                <div key={phase.index} style={{ marginBottom: 16, padding: 12, background: "#f9f9f9", borderRadius: 6 }}>
-                    <strong style={{ textTransform: "capitalize" }}>{phase.name}</strong>
-                    <div style={{ display: "flex", gap: 20, marginTop: 8, fontSize: 13 }}>
-                        <span>Duration: {Math.floor(phase.duration_seconds / 60)} min</span>
-                        <span>Posts: {phase.post_count}</span>
-                        <span>Interventions: {phase.intervention_count}</span>
+        <div>
+            <SectionHeading>Phase breakdown</SectionHeading>
+            <div className="grid gap-3">
+                {process.phases.map((phase) => (
+                    <div key={phase.index} className="rounded-lg border border-border bg-muted/20 p-4">
+                        <div className="font-semibold capitalize">{phase.name}</div>
+                        <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
+                            <span>
+                                Duration:{" "}
+                                <span className="font-medium text-foreground">
+                                    {Math.floor(phase.duration_seconds / 60)} min
+                                </span>
+                            </span>
+                            <span>
+                                Posts: <span className="font-medium text-foreground">{phase.post_count}</span>
+                            </span>
+                            <span>
+                                Interventions:{" "}
+                                <span className="font-medium text-foreground">{phase.intervention_count}</span>
+                            </span>
+                        </div>
                     </div>
-                </div>
-            ))}
-
-            {summary.is_facilitator && process.interventions_by_rule && Object.keys(process.interventions_by_rule).length > 0 && (
-                <>
-                    <SectionHeading>Interventions by Type</SectionHeading>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                        <tbody>
-                            {Object.entries(process.interventions_by_rule).map(([rule, count]) => (
-                                <tr key={rule} style={{ borderBottom: "1px solid #ddd" }}>
-                                    <td style={{ padding: 8 }}>{rule.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</td>
-                                    <td style={{ padding: 8, textAlign: "right", fontWeight: 600 }}>{count}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </>
-            )}
-        </div>
-    );
-}
-
-function QualityTab({ quality }: { quality: { flags: QualityFlag[]; overall_score: string } }) {
-    const scoreColors: Record<string, string> = {
-        good: "#4caf50",
-        needs_attention: "#ff9800",
-        concerning: "#f44336",
-    };
-
-    return (
-        <div style={{ overflow: "auto", height: "100%", padding: "0 10px" }}>
-            <SectionHeading>Overall Assessment</SectionHeading>
-            <div style={{
-                padding: 16,
-                background: scoreColors[quality.overall_score] || "#999",
-                color: "white",
-                borderRadius: 6,
-                textAlign: "center",
-                marginBottom: 20,
-                fontSize: 18,
-                fontWeight: 600,
-            }}>
-                {quality.overall_score.replace(/_/g, " ").toUpperCase()}
+                ))}
             </div>
 
-            <SectionHeading>Quality Checks</SectionHeading>
-            {quality.flags.map((flag) => (
-                <div
-                    key={flag.code}
-                    style={{
-                        marginBottom: 12,
-                        padding: 12,
-                        background: flag.triggered ? "#ffebee" : "#e8f5e9",
-                        borderRadius: 6,
-                        borderLeft: `4px solid ${flag.triggered ? "#f44336" : "#4caf50"}`
-                    }}
-                >
-                    <strong>{flag.label}</strong>
-                    <span style={{
-                        marginLeft: 8,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        background: flag.triggered ? "#f44336" : "#4caf50",
-                        color: "white",
-                        fontSize: 12,
-                    }}>
-                        {flag.triggered ? "FLAGGED" : "OK"}
-                    </span>
-                    <p style={{ margin: "8px 0 0 0", fontSize: 13, opacity: 0.8 }}>{flag.details}</p>
-                </div>
-            ))}
+            {summary.is_facilitator &&
+                process.interventions_by_rule &&
+                Object.keys(process.interventions_by_rule).length > 0 && (
+                    <>
+                        <SectionHeading>Interventions by type</SectionHeading>
+                        <div className="overflow-x-auto rounded-lg border border-border">
+                            <table className="min-w-full text-sm">
+                                <tbody>
+                                    {Object.entries(process.interventions_by_rule).map(([rule, count]) => (
+                                        <tr key={rule} className="border-b border-border">
+                                            <td className="px-3 py-2">
+                                                {rule.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-medium">{count}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
         </div>
     );
 }
 
-// ===== Helper components =====
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-    return (
-        <h3 style={{
-            marginTop: 20,
-            marginBottom: 10,
-            borderBottom: "1px solid #ddd",
-            paddingBottom: 6,
-            fontSize: 16
-        }}>
-            {children}
-        </h3>
-    );
-}
+function QualityTab({ quality }: { quality: { flags: QualityFlag[]; overall_score: string } }) {
+    const scoreLabel = quality.overall_score.replace(/_/g, " ").toUpperCase();
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+    const scoreClass =
+        quality.overall_score === "good"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+            : quality.overall_score === "needs_attention"
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : quality.overall_score === "concerning"
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-border bg-muted/20 text-foreground";
+
     return (
-        <div style={{ background: "#d9d9d9", padding: 16, borderRadius: 6, textAlign: "center" }}>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{value}</div>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>{label}</div>
+        <div>
+            <SectionHeading>Overall assessment</SectionHeading>
+            <div className={`rounded-lg border p-4 text-center font-semibold ${scoreClass}`}>
+                {scoreLabel}
+            </div>
+
+            <SectionHeading>Quality checks</SectionHeading>
+            <div className="grid gap-3">
+                {quality.flags.map((flag) => (
+                    <div
+                        key={flag.code}
+                        className={[
+                            "rounded-lg border p-4",
+                            flag.triggered ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50",
+                        ].join(" ")}
+                    >
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="font-semibold">{flag.label}</div>
+                            <span
+                                className={[
+                                    "text-xs rounded-full px-2 py-0.5 font-semibold",
+                                    flag.triggered ? "bg-red-600 text-white" : "bg-emerald-600 text-white",
+                                ].join(" ")}
+                            >
+                                {flag.triggered ? "FLAGGED" : "OK"}
+                            </span>
+                            {typeof flag.count === "number" ? (
+                                <span className="text-xs text-muted-foreground">· {flag.count}</span>
+                            ) : null}
+                        </div>
+                        {flag.details ? (
+                            <p className="mt-2 text-sm text-muted-foreground">{flag.details}</p>
+                        ) : null}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

@@ -1,15 +1,79 @@
-html,
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    width: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji",
+        "Segoe UI Emoji";
 }
-    *,
-    *::before,
-    *::after {
-        box-sizing: border-box;
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 222.2 84% 4.9%;
+
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+
+        --primary: 224 76% 48%;
+        /* indigo-ish */
+        --primary-foreground: 210 40% 98%;
+
+        --radius: 14px;
     }
+
+    .dark {
+        --background: 222.2 84% 4.9%;
+        --foreground: 210 40% 98%;
+        --muted: 217 33% 17%;
+        --muted-foreground: 215 20% 65%;
+        --border: 217 33% 17%;
+        --input: 217 33% 17%;
+        --primary: 210 40% 98%;
+        --primary-foreground: 222.2 47.4% 11.2%;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+/* Modal animations (no plugin needed) */
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modalPopIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-backdrop {
+    animation: modalFadeIn 150ms ease-out;
+}
+
+.modal-panel {
+    animation: modalPopIn 170ms ease-out;
+}
