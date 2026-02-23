@@ -81,7 +81,7 @@ export type RoomListItem = {
 	created_at: string;
 };
 
-export async function createTempAccount(displayName: string, role: "learner" | "facilitator") {
+export async function createTempAccount(displayName: string, role: "learner" | "facilitator"| "maintainer") {
 	const url = `${API_BASE_URL}api/temp-login/`;
 	console.log("Fetching:", url);
 
