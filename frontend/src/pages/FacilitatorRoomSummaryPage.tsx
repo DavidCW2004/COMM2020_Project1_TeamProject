@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import styles from "../styles/Login.module.css";
 import type { FacilitatorSessionSummary } from "../api/client";
-import { fetchFacilitatorRoomSummary, regenerateFacilitatorRoomSummary } from "../api/client";
-import { exportFacilitatorSummaryPDF } from "../api/client";
+import {fetchFacilitatorRoomSummary,regenerateFacilitatorRoomSummary,exportFacilitatorSummaryPDF} from "../api/client";
+import { Button } from "../components/ui/button";
 
 type SummaryState =
     | { status: "loading" }
@@ -21,8 +20,8 @@ export default function FacilitatorRoomSummaryPage() {
     const [busy, setBusy] = useState(false);
 
     const title = useMemo(() => {
-        if (!code) return "Room Summary";
-        return `Room Summary · ${code.toUpperCase()}`;
+        if (!code) return "Room summary";
+        return `Room summary · ${code.toUpperCase()}`;
     }, [code]);
 
     async function load() {
@@ -58,7 +57,6 @@ export default function FacilitatorRoomSummaryPage() {
         }
     }
 
-
     async function downloadPdf() {
         if (!code) return;
 
@@ -88,85 +86,84 @@ export default function FacilitatorRoomSummaryPage() {
     }, [code, activityRunId]);
 
     return (
-        <div className={styles.page}>
-            <div className={styles.rectangleParent}>
-                <div className={styles.frameDiv}>
-                    <div className={styles.rectangleDiv} />
-                    <h2 className={styles.socialStudyTeammates}>{title}</h2>
-                    <div className={styles.collaborativeLearningWith}>
-                        {activityRunId ? `Run: ${activityRunId}` : "Latest run"}
+        <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl space-y-6">
+                <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0">
+                            <div className="h-1.5 w-16 rounded-full bg-primary/80 mb-3" />
+                            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {activityRunId ? `Run: ${activityRunId}` : "Latest run"}
+                            </p>
+                        </div>
+
+                        <div className="flex gap-2 flex-wrap">
+                            <Button variant="secondary" onClick={() => navigate("/facilitator")}>
+                                ← Back
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={() => void load()}
+                                disabled={busy || state.status === "loading"}
+                            >
+                                Refresh
+                            </Button>
+                            <Button variant="secondary" onClick={() => void regenerate()} disabled={busy}>
+                                {busy ? "Generating…" : "Generate / regenerate"}
+                            </Button>
+                            <Button
+                                onClick={() => void downloadPdf()}
+                                disabled={!code || busy || state.status !== "ready"}
+                            >
+                                Download PDF
+                            </Button>
+                        </div>
                     </div>
                 </div>
-                <div className={styles.membersListParent} style={{ width: "100%" }}>
-                    <div className={styles.membersHeading} style={{ fontSize: 28 }}>
-                        Session Summary
+
+                <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <h2 className="text-lg font-semibold">Session summary</h2>
+                        <div className="text-sm text-muted-foreground">
+                            {state.status === "ready" ? "Ready" : state.status === "loading" ? "Loading…" : ""}
+                        </div>
                     </div>
-                    <div style={{ padding: 12, display: "flex", gap: 10 }}>
-                        <button
-                            className={styles.primaryButton}
-                            type="button"
-                            style={{ height: 36 }}
-                            onClick={() => navigate("/facilitator")}
-                        >
-                            ← Back
-                        </button>
 
-                        <button
-                            className={styles.primaryButton}
-                            type="button"
-                            style={{ height: 36 }}
-                            onClick={() => void load()}
-                            disabled={busy || state.status === "loading"}
-                        >
-                            Refresh
-                        </button>
-
-                        <button
-                            className={styles.primaryButton}
-                            type="button"
-                            style={{ height: 36 }}
-                            onClick={() => void regenerate()}
-                            disabled={busy}
-                        >
-                            {busy ? "Generating…" : "Generate / Regenerate"}
-                        </button>
-
-                        <button
-                            className={styles.primaryButton}
-                            type="button"
-                            style={{ height: 36 }}
-                            onClick={() => void downloadPdf()}
-                            disabled={!code || busy || state.status !== "ready"}
-                        >
-                            Download PDF
-                        </button>
-
-                    </div>
-                    <div className={styles.scrollArea} style={{ padding: 12 }}>
+                    <div className="mt-4">
                         {state.status === "loading" && (
-                            <div style={{ textAlign: "center", opacity: 0.8, padding: 20 }}>
-                                Loading summary…
+                            <div className="space-y-3">
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                    <div key={i} className="rounded-lg border border-border bg-background p-4">
+                                        <div className="h-5 w-1/3 bg-muted rounded" />
+                                        <div className="mt-3 h-4 w-5/6 bg-muted rounded" />
+                                        <div className="mt-2 h-4 w-2/3 bg-muted rounded" />
+                                    </div>
+                                ))}
                             </div>
                         )}
 
                         {state.status === "missing" && (
-                            <div className={styles.emptyState}>
-                                <div className={styles.emptyTitle}>Summary not generated yet</div>
-                                <div className={styles.emptySubtitle}>
-                                    Click “Generate / Regenerate” to create a summary for this run.
+                            <div className="rounded-lg border border-border bg-muted/40 p-8 text-center">
+                                <div className="text-base font-semibold">Summary not generated yet</div>
+                                <div className="mt-2 text-sm text-muted-foreground">
+                                    Click “Generate / regenerate” to create a summary for this run.
                                 </div>
                             </div>
                         )}
 
-                        {state.status === "error" && <div className={styles.error}>{state.message}</div>}
+                        {state.status === "error" && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {state.message}
+                            </div>
+                        )}
 
                         {state.status === "ready" && (
-                            <div style={{ display: "grid", gap: 12 }}>
+                            <div className="grid gap-4">
                                 <ParticipationSummary data={state.data.participation} />
                                 <QualitySummary data={state.data.quality} />
                                 <ProcessSummary data={state.data.process} />
                                 <OutcomesSummary data={state.data.outcomes} />
-
                             </div>
                         )}
                     </div>
@@ -176,28 +173,29 @@ export default function FacilitatorRoomSummaryPage() {
     );
 }
 
+
+function SummaryCard({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
+            <div className="font-semibold text-base">{title}</div>
+            <div className="mt-3">{children}</div>
+        </div>
+    );
+}
+
 function SummaryBlock({ title, value }: { title: string; value: any }) {
     return (
-        <div
-            style={{
-                background: "#D9D9D9",
-                borderRadius: 6,
-                padding: 12,
-            }}
-        >
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div>
-            <pre
-                style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    fontSize: 13,
-                    lineHeight: 1.35,
-                }}
-            >
+        <SummaryCard title={title}>
+            <pre className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
                 {formatValue(value)}
             </pre>
-        </div>
+        </SummaryCard>
     );
 }
 
@@ -212,9 +210,7 @@ function formatValue(value: any) {
 }
 
 function ParticipationSummary({ data }: { data: any }) {
-    if (!data) {
-        return <SummaryBlock title="Participation" value={null} />;
-    }
+    if (!data) return <SummaryBlock title="Participation" value={null} />;
 
     const members = Array.isArray(data.members) ? data.members : [];
 
@@ -239,76 +235,82 @@ function ParticipationSummary({ data }: { data: any }) {
             : "—";
 
     return (
-        <div style={{ background: "#D9D9D9", borderRadius: 6, padding: 12 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Participation</div>
-
-            <div style={{ display: "grid", gap: 6, fontSize: 13, marginBottom: 12 }}>
+        <SummaryCard title="Participation">
+            <div className="grid gap-2 text-sm text-muted-foreground">
                 <div>
-                    <b>Total posts:</b> {data.total_posts ?? "—"}
+                    <span className="font-medium text-foreground">Total posts:</span>{" "}
+                    {data.total_posts ?? "—"}
                 </div>
                 <div>
-                    <b>Total interventions:</b> {data.total_interventions ?? "—"}
+                    <span className="font-medium text-foreground">Total interventions:</span>{" "}
+                    {data.total_interventions ?? "—"}
                 </div>
                 <div>
-                    <b>Turn balance:</b> {balanceLabel}
-                    {typeof data.turn_balance_score === "number" ? ` (${data.turn_balance_score})` : ""}
+                    <span className="font-medium text-foreground">Turn balance:</span>{" "}
+                    {balanceLabel}
+                    {typeof data.turn_balance_score === "number"
+                        ? ` (${data.turn_balance_score})`
+                        : ""}
                 </div>
                 <div>
-                    <b>Participation inequality:</b> {inequalityLabel}
-                    {typeof data.gini_coefficient === "number" ? ` (${data.gini_coefficient})` : ""}
+                    <span className="font-medium text-foreground">Participation inequality:</span>{" "}
+                    {inequalityLabel}
+                    {typeof data.gini_coefficient === "number"
+                        ? ` (${data.gini_coefficient})`
+                        : ""}
                 </div>
             </div>
 
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Member contributions</div>
+            <div className="mt-5 font-semibold text-sm">Member contributions</div>
 
             {members.length === 0 ? (
-                <div style={{ opacity: 0.8 }}>No member breakdown available.</div>
+                <div className="mt-2 text-sm text-muted-foreground">
+                    No member breakdown available.
+                </div>
             ) : (
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className="mt-3 grid gap-3">
                     {members.map((m: any) => (
                         <div
                             key={m.user_id ?? m.username}
-                            style={{
-                                background: "#f2efef",
-                                border: "1px solid #cfcfcf",
-                                borderRadius: 10,
-                                padding: 10,
-                            }}
+                            className="rounded-lg border border-border bg-muted/20 p-4"
                         >
-                            <div style={{ fontWeight: 700 }}>
+                            <div className="font-semibold">
                                 {m.display_name || m.username || "Unknown"}
                             </div>
 
-                            <div style={{ fontSize: 13, marginTop: 4 }}>
-                                Posts: <b>{m.post_count ?? 0}</b>
+                            <div className="mt-2 text-sm text-muted-foreground">
+                                Posts: <span className="font-medium text-foreground">{m.post_count ?? 0}</span>
                                 {typeof m.contribution_percentage === "number"
                                     ? ` · ${Math.round(m.contribution_percentage)}%`
                                     : ""}
                             </div>
 
                             {m.posts_by_phase && typeof m.posts_by_phase === "object" ? (
-                                <div style={{ fontSize: 12, marginTop: 4, opacity: 0.9 }}>
+                                <div className="mt-2 text-xs text-muted-foreground">
                                     By phase:{" "}
                                     {Object.entries(m.posts_by_phase).map(([phase, count]) => (
-                                        <span key={phase} style={{ marginRight: 10 }}>
+                                        <span key={phase} className="mr-3">
                                             Phase {Number(phase) + 1}: {String(count)}
                                         </span>
                                     ))}
                                 </div>
                             ) : null}
 
-                            <div style={{ fontSize: 12, marginTop: 4 }}>
-                                Evidence gaps flagged: <b>{m.lacks_evidence_count ?? 0}</b>
+                            <div className="mt-2 text-xs text-muted-foreground">
+                                Evidence gaps flagged:{" "}
+                                <span className="font-medium text-foreground">
+                                    {m.lacks_evidence_count ?? 0}
+                                </span>
                             </div>
 
-                            <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+                            <div className="mt-2 text-xs text-muted-foreground">
                                 Active: {formatTime(m.first_post_at)} → {formatTime(m.last_post_at)}
                             </div>
                         </div>
                     ))}
                 </div>
             )}
-        </div>
+        </SummaryCard>
     );
 }
 
@@ -319,10 +321,13 @@ function QualitySummary({ data }: { data: any }) {
     const flags = Array.isArray(data.flags) ? data.flags : [];
 
     const scoreText =
-        score === "good" ? "Good" :
-            score === "mixed" ? "Mixed" :
-                score === "concerning" ? "Concerning" :
-                    score;
+        score === "good"
+            ? "Good"
+            : score === "mixed"
+                ? "Mixed"
+                : score === "concerning"
+                    ? "Concerning"
+                    : score;
 
     const scoreNote =
         score === "concerning"
@@ -337,47 +342,36 @@ function QualitySummary({ data }: { data: any }) {
     const notTriggered = flags.filter((f: any) => !f?.triggered);
 
     return (
-        <div style={{ background: "#D9D9D9", borderRadius: 6, padding: 12 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Quality</div>
-
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-                <span
-                    style={{
-                        padding: "4px 10px",
-                        borderRadius: 999,
-                        border: "1px solid #cfcfcf",
-                        background: "#f2efef",
-                        fontSize: 12,
-                        fontWeight: 700,
-                    }}
-                >
+        <SummaryCard title="Quality">
+            <div className="flex gap-3 items-center flex-wrap">
+                <span className="text-xs rounded-full border border-border bg-muted/30 px-3 py-1 font-semibold">
                     Overall: {scoreText}
                 </span>
-                {scoreNote && <span style={{ fontSize: 12, opacity: 0.85 }}>{scoreNote}</span>}
+                {scoreNote && <span className="text-xs text-muted-foreground">{scoreNote}</span>}
             </div>
 
-            <div style={{ fontWeight: 700, margin: "10px 0 6px" }}>Triggered flags</div>
+            <div className="mt-4 font-semibold text-sm">Triggered flags</div>
+
             {triggered.length === 0 ? (
-                <div style={{ opacity: 0.8 }}>No flags triggered.</div>
+                <div className="mt-2 text-sm text-muted-foreground">No flags triggered.</div>
             ) : (
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className="mt-3 grid gap-3">
                     {triggered.map((f: any) => (
-                        <div
-                            key={f.code ?? f.label}
-                            style={{
-                                background: "#f2efef",
-                                border: "1px solid #cfcfcf",
-                                borderRadius: 10,
-                                padding: 10,
-                            }}
-                        >
-                            <div style={{ fontWeight: 700 }}>
+                        <div key={f.code ?? f.label} className="rounded-lg border border-border bg-muted/20 p-4">
+                            <div className="font-semibold">
                                 {f.label ?? f.code ?? "Flag"}
                                 {typeof f.count === "number" ? (
-                                    <span style={{ fontWeight: 600, opacity: 0.8 }}> · {f.count}</span>
+                                    <span className="font-medium text-muted-foreground">
+                                        {" "}
+                                        · {f.count}
+                                    </span>
                                 ) : null}
                             </div>
-                            {f.details ? <div style={{ fontSize: 12, marginTop: 4, opacity: 0.85 }}>{String(f.details)}</div> : null}
+                            {f.details ? (
+                                <div className="mt-2 text-sm text-muted-foreground">
+                                    {String(f.details)}
+                                </div>
+                            ) : null}
                         </div>
                     ))}
                 </div>
@@ -385,13 +379,16 @@ function QualitySummary({ data }: { data: any }) {
 
             {notTriggered.length > 0 && (
                 <>
-                    <div style={{ fontWeight: 700, margin: "12px 0 6px" }}>Not triggered</div>
-                    <div style={{ fontSize: 12, opacity: 0.85 }}>
-                        {notTriggered.map((f: any) => f.label ?? f.code).filter(Boolean).join(" · ")}
+                    <div className="mt-5 font-semibold text-sm">Not triggered</div>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                        {notTriggered
+                            .map((f: any) => f.label ?? f.code)
+                            .filter(Boolean)
+                            .join(" · ")}
                     </div>
                 </>
             )}
-        </div>
+        </SummaryCard>
     );
 }
 
@@ -399,11 +396,13 @@ function ProcessSummary({ data }: { data: any }) {
     if (!data) return <SummaryBlock title="Process" value={null} />;
 
     const phases = Array.isArray(data.phases) ? data.phases : [];
-    const rules = data.interventions_by_rule && typeof data.interventions_by_rule === "object"
-        ? data.interventions_by_rule
-        : {};
+    const rules =
+        data.interventions_by_rule && typeof data.interventions_by_rule === "object"
+            ? data.interventions_by_rule
+            : {};
 
-    const totalDuration = typeof data.total_duration_seconds === "number" ? data.total_duration_seconds : null;
+    const totalDuration =
+        typeof data.total_duration_seconds === "number" ? data.total_duration_seconds : null;
 
     const mostInterventionRule = (() => {
         const entries = Object.entries(rules) as Array<[string, any]>;
@@ -413,85 +412,90 @@ function ProcessSummary({ data }: { data: any }) {
     })();
 
     return (
-        <div style={{ background: "#D9D9D9", borderRadius: 6, padding: 12 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Process</div>
-
-            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 10 }}>
-                Total duration: <b>{totalDuration != null ? formatDuration(totalDuration) : "—"}</b>
+        <SummaryCard title="Process">
+            <div className="text-sm text-muted-foreground">
+                Total duration:{" "}
+                <span className="font-medium text-foreground">
+                    {totalDuration != null ? formatDuration(totalDuration) : "—"}
+                </span>
                 {mostInterventionRule ? (
                     <>
-                        {" "}· Most frequent intervention: <b>{prettyRule(mostInterventionRule.rule)}</b> ({mostInterventionRule.count})
+                        {" "}
+                        · Most frequent intervention:{" "}
+                        <span className="font-medium text-foreground">
+                            {prettyRule(mostInterventionRule.rule)}
+                        </span>{" "}
+                        ({mostInterventionRule.count})
                     </>
                 ) : null}
             </div>
 
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Phases</div>
+            <div className="mt-4 font-semibold text-sm">Phases</div>
 
             {phases.length === 0 ? (
-                <div style={{ opacity: 0.8 }}>No phase breakdown available.</div>
+                <div className="mt-2 text-sm text-muted-foreground">
+                    No phase breakdown available.
+                </div>
             ) : (
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className="mt-3 grid gap-3">
                     {phases.map((p: any) => (
                         <div
                             key={p.index ?? p.name}
-                            style={{
-                                background: "#f2efef",
-                                border: "1px solid #cfcfcf",
-                                borderRadius: 10,
-                                padding: 10,
-                                display: "flex",
-                                justifyContent: "space-between",
-                                gap: 12,
-                            }}
+                            className="rounded-lg border border-border bg-muted/20 p-4 flex items-start justify-between gap-4"
                         >
                             <div>
-                                <div style={{ fontWeight: 700 }}>
-                                    Phase {typeof p.index === "number" ? p.index + 1 : "—"}: {String(p.name ?? "—")}
+                                <div className="font-semibold">
+                                    Phase {typeof p.index === "number" ? p.index + 1 : "—"}:{" "}
+                                    {String(p.name ?? "—")}
                                 </div>
-                                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>
-                                    Duration: {typeof p.duration_seconds === "number" ? formatDuration(p.duration_seconds) : "—"}
+                                <div className="mt-1 text-sm text-muted-foreground">
+                                    Duration:{" "}
+                                    <span className="font-medium text-foreground">
+                                        {typeof p.duration_seconds === "number"
+                                            ? formatDuration(p.duration_seconds)
+                                            : "—"}
+                                    </span>
                                 </div>
                             </div>
 
-                            <div style={{ textAlign: "right", fontSize: 12 }}>
-                                <div>Posts: <b>{p.post_count ?? 0}</b></div>
-                                <div>Interventions: <b>{p.intervention_count ?? 0}</b></div>
+                            <div className="text-right text-sm text-muted-foreground">
+                                <div>
+                                    Posts: <span className="font-medium text-foreground">{p.post_count ?? 0}</span>
+                                </div>
+                                <div>
+                                    Interventions:{" "}
+                                    <span className="font-medium text-foreground">{p.intervention_count ?? 0}</span>
+                                </div>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
 
-            <div style={{ fontWeight: 700, margin: "12px 0 6px" }}>Interventions by rule</div>
+            <div className="mt-5 font-semibold text-sm">Interventions by rule</div>
 
             {Object.keys(rules).length === 0 ? (
-                <div style={{ opacity: 0.8 }}>No intervention breakdown available.</div>
+                <div className="mt-2 text-sm text-muted-foreground">
+                    No intervention breakdown available.
+                </div>
             ) : (
-                <div style={{ display: "grid", gap: 6, fontSize: 12 }}>
+                <div className="mt-3 grid gap-2 text-sm">
                     {Object.entries(rules)
                         .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
                         .map(([rule, count]) => (
                             <div
                                 key={rule}
-                                style={{
-                                    background: "#f2efef",
-                                    border: "1px solid #cfcfcf",
-                                    borderRadius: 10,
-                                    padding: "8px 10px",
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                }}
+                                className="rounded-lg border border-border bg-muted/20 px-3 py-2 flex justify-between"
                             >
-                                <span style={{ fontWeight: 700 }}>{prettyRule(rule)}</span>
-                                <span>{Number(count) || 0}</span>
+                                <span className="font-medium">{prettyRule(rule)}</span>
+                                <span className="text-muted-foreground">{Number(count) || 0}</span>
                             </div>
                         ))}
                 </div>
             )}
-        </div>
+        </SummaryCard>
     );
 }
-
 
 function OutcomesSummary({ data }: { data: any }) {
     if (!data) return <SummaryBlock title="Outcomes" value={null} />;
@@ -505,56 +509,41 @@ function OutcomesSummary({ data }: { data: any }) {
         decisions.length > 0 || actionItems.length > 0 || unanswered.length > 0 || finalOutcome;
 
     return (
-        <div style={{ background: "#D9D9D9", borderRadius: 6, padding: 12 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Outcomes</div>
-
+        <SummaryCard title="Outcomes">
             {!hasAnything ? (
-                <div style={{ opacity: 0.85 }}>
+                <div className="text-sm text-muted-foreground">
                     No decisions or action items were captured for this run.
-                    <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>
-                        Tip: ensure the <b>Decide</b> phase includes a clear “What are we doing next?” prompt.
+                    <div className="mt-2 text-xs text-muted-foreground">
+                        Tip: ensure the <span className="font-medium text-foreground">Decide</span> phase includes a clear
+                        “What are we doing next?” prompt.
                     </div>
                 </div>
             ) : (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className="grid gap-3">
                     <OutcomeList title="Decisions" items={decisions} emptyText="No decisions recorded." />
                     <OutcomeList title="Action items" items={actionItems} emptyText="No action items recorded." />
                     <OutcomeList title="Unanswered questions" items={unanswered} emptyText="No unanswered questions recorded." />
 
-                    <div
-                        style={{
-                            background: "#f2efef",
-                            border: "1px solid #cfcfcf",
-                            borderRadius: 10,
-                            padding: 10,
-                        }}
-                    >
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Final outcome</div>
-                        <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    <div className="rounded-lg border border-border bg-muted/20 p-4">
+                        <div className="font-semibold text-sm">Final outcome</div>
+                        <div className="mt-2 text-sm text-muted-foreground">
                             {finalOutcome ? String(finalOutcome) : "—"}
                         </div>
                     </div>
                 </div>
             )}
-        </div>
+        </SummaryCard>
     );
 }
 
 function OutcomeList({ title, items, emptyText }: { title: string; items: any[]; emptyText: string }) {
     return (
-        <div
-            style={{
-                background: "#f2efef",
-                border: "1px solid #cfcfcf",
-                borderRadius: 10,
-                padding: 10,
-            }}
-        >
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{title}</div>
+        <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <div className="font-semibold text-sm">{title}</div>
             {items.length === 0 ? (
-                <div style={{ fontSize: 13, opacity: 0.85 }}>{emptyText}</div>
+                <div className="mt-2 text-sm text-muted-foreground">{emptyText}</div>
             ) : (
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                <ul className="mt-2 pl-5 text-sm text-muted-foreground space-y-1">
                     {items.map((x, i) => (
                         <li key={i}>{typeof x === "string" ? x : JSON.stringify(x)}</li>
                     ))}
@@ -563,8 +552,6 @@ function OutcomeList({ title, items, emptyText }: { title: string; items: any[];
         </div>
     );
 }
-
-
 
 function formatTime(value?: string) {
     if (!value) return "—";
@@ -581,7 +568,5 @@ function formatDuration(seconds: number) {
 }
 
 function prettyRule(rule: string) {
-    return rule
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+    return rule.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
