@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 type ModalProps = {
     isOpen: boolean;
@@ -11,7 +12,6 @@ export default function Modal({ isOpen, onClose, children, footer }: ModalProps)
     const panelRef = useRef<HTMLDivElement | null>(null);
     const onCloseRef = useRef(onClose);
 
-    // keep latest onClose without retriggering the open/close effect
     useEffect(() => {
         onCloseRef.current = onClose;
     }, [onClose]);
@@ -26,7 +26,6 @@ export default function Modal({ isOpen, onClose, children, footer }: ModalProps)
         document.addEventListener("keydown", handleKeyDown);
         document.body.style.overflow = "hidden";
 
-        // Focus the first input/button inside the modal (once on open)
         window.setTimeout(() => {
             const el = panelRef.current?.querySelector<HTMLElement>(
                 'input, select, textarea, button, [tabindex]:not([tabindex="-1"])'
@@ -42,9 +41,9 @@ export default function Modal({ isOpen, onClose, children, footer }: ModalProps)
 
     if (!isOpen) return null;
 
-    return (
+    const modalUi = (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6"
             role="dialog"
             aria-modal="true"
             onClick={() => onCloseRef.current()}
@@ -56,7 +55,6 @@ export default function Modal({ isOpen, onClose, children, footer }: ModalProps)
                 onClick={(e) => e.stopPropagation()}
                 className="modal-panel relative w-full max-w-lg rounded-lg border border-border bg-background shadow-lg outline-none"
             >
-                {/* (use your updated header/body/footer here) */}
                 <div className="flex items-center justify-end px-4 pt-4">
                     <button
                         type="button"
@@ -78,4 +76,6 @@ export default function Modal({ isOpen, onClose, children, footer }: ModalProps)
             </div>
         </div>
     );
+
+    return createPortal(modalUi, document.body);
 }
