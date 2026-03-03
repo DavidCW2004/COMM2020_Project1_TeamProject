@@ -20,6 +20,7 @@ EVIDENCE_KEYWORDS = [
     "http://", "https://", "for example", "for instance", "e.g."
 ]
 
+#echo chamber thresholds
 DEBATE_WINDOW_SIZE = 6 #number of messages to look back on for echo chamber rule
 DEBATE_COOLDOWN = timedelta(minutes=3)
 AGREEMENT_KEYWORDS = [ #keywords for agreement/good debate
@@ -31,6 +32,11 @@ DEBATE_KEYWORDS = [
     "on the other hand", "i see it differently", "i dont think so",
     "not necessarily"
 ]
+
+#rapid fire thresholds
+RAPID_FIRE_THRESHOLD = 10
+RAPID_FIRE_WINDOW = timedelta(seconds=60)
+RAPID_FIRE_COOLDOWN = timedelta(minutes=3)
 
 CITATION_PATTERNS = [
     r"\[\d+\]",
@@ -439,6 +445,32 @@ def check_echo_chamber_rule(room, phase_index=None) -> bool:
     return True
 
 
+def check_rapid_fire_rule(room, phase_index=None) -> bool:
+    agent = _agent("Facilitator Agent", "Maintains a steady pace and encourages deeper thinking.")
+    rule_name = "check_rapid_fire"
+
+    cooldown_since = timezone.now() - RAPID_FIRE_COOLDOWN
+    if _recent(room, agent, rule_name, cooldown_since, phase_index):
+        return False
+
+    window_start = timezone.now() - RAPID_FIRE_WINDOW
+    recent_count = Post.objects.filter(
+        room = room,
+        phase_index = phase_index,
+        created_at__gte = window_start #gte says if the time is greater than or equal to window_start
+    ).count()
+
+    if recent_count < RAPID_FIRE_THRESHOLD:
+        return False
+    
+    explanation = f"Group posted {recent_count} messages in the last {RAPID_FIRE_WINDOW.seconds // 60} minutes, this may indicate a rapid pace hindering deeper thinking."
+    message = f"Let's slow down a bit to give everyone time to reflect and engage more deeply with the discussion!"
+    
+    _create(room, agent, rule_name, message, explanation, phase_index)
+    return True
+
+
+
 #the check rules functions have been split for better performance and to allow regular checks on room/phase rules
 
 def check_room_state_rules(room, phase_index=None): #only checks the rules that apply to the whole room/phase
@@ -454,6 +486,8 @@ def check_room_state_rules(room, phase_index=None): #only checks the rules that 
         triggered.append("unanswered_question")
     if check_source_diversity_rule(room, phase_index=phase_index):
         triggered.append("source_diversity")
+    if check_echo_chamber_rule(room, phase_index=phase_index):
+        triggered.append("echo_chamber")
         
     return triggered
 
@@ -464,6 +498,8 @@ def check_post_rules(room, post): #only checks rules that apply to posts
         triggered.append("missing_evidence")
     if check_short_message_rule(room, post):
         triggered.append("short_message")
+    if check_rapid_fire_rule(room, post.phase_index):
+        triggered.append("rapid_fire")
         
     return triggered
 
