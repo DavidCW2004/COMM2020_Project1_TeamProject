@@ -38,6 +38,10 @@ RAPID_FIRE_THRESHOLD = 10
 RAPID_FIRE_WINDOW = timedelta(seconds=60)
 RAPID_FIRE_COOLDOWN = timedelta(minutes=3)
 
+#inclusivity thresholds
+TURN_TAKING_WINDOW = 6
+TURN_TAKING_COOLDOWN = timedelta(minutes=3)
+
 CITATION_PATTERNS = [
     r"\[\d+\]",
     r"\(\s*\d{4}\s*\)",  
@@ -470,6 +474,48 @@ def check_rapid_fire_rule(room, phase_index=None) -> bool:
     return True
 
 
+def check_inclusivity_rule(room, phase_index=None) -> bool:
+    agent = _agent("Equity Agent", "Encourages balanced participation and prevents dominant sub groups forming")
+    rule_name = "check_inclusivity"
+
+    cooldown_since = timezone.now() - TURN_TAKING_COOLDOWN
+    if _recent(room, agent, rule_name, cooldown_since, phase_index):
+        return False
+    
+    recent_posts = Post.objects.filter(
+        room = room, 
+        phase_index = phase_index,
+    ).order_by('-created_at')[:TURN_TAKING_WINDOW]
+
+    if recent_posts.count() < TURN_TAKING_WINDOW:
+        return False
+    
+    authors = set(p.author for p in recent_posts)
+    if len(authors) != 2: #if more than two people are speaking then the conversation is inclusive, if only one is speaking then dominant speaker rule will intervene 
+        return False
+    
+    all_members = set(room.members.all())
+    quiet_members = all_members - authors
+
+    quiet_names = [m.first_name or m.username for m in quiet_members]
+
+    if not quiet_members: #if there is only two people in the room then this rule will not intervene
+        return False
+    
+    if len(quiet_names) == 1:
+        invite_text = f"what does {quiet_names[0]} think about this?"
+    else:
+        invite_text = f"what do {', '.join(quiet_names[:-1])} and {quiet_names[-1]} think about this?"
+    
+    explanation = f"The last {TURN_TAKING_WINDOW} posts were only between {list(authors)[0]} and {list(authors)[1]}."
+    message = f"This is a great conversation between the two of you, lets get everyone involed, {invite_text}"
+
+    _create(room, agent, rule_name, message, explanation, phase_index)
+    return True
+
+
+
+
 
 #the check rules functions have been split for better performance and to allow regular checks on room/phase rules
 
@@ -488,7 +534,9 @@ def check_room_state_rules(room, phase_index=None): #only checks the rules that 
         triggered.append("source_diversity")
     if check_echo_chamber_rule(room, phase_index=phase_index):
         triggered.append("echo_chamber")
-        
+    if check_inclusivity_rule(room, phase_index=phase_index):
+        triggered.append("inclusivity rule")
+
     return triggered
 
 def check_post_rules(room, post): #only checks rules that apply to posts
