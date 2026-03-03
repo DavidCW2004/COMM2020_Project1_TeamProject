@@ -17,7 +17,7 @@ from .models import (
     FinalAnswerVote,
 )
 from .serializers import PostSerializer, ActivitySerializer
-from .agent_rules import check_all_rules, check_individual_inactivity_rule, check_unanswered_question_rule, message_lacks_evidence
+from .agent_rules import check_all_rules, check_individual_inactivity_rule, check_unanswered_question_rule, message_lacks_evidence, check_room_state_rules, check_post_rules
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count
@@ -171,8 +171,7 @@ def messages(request):
         phase_index = None
 
     if request.method == "GET":
-        check_individual_inactivity_rule(room, phase_index=phase_index)
-        check_unanswered_question_rule(room, phase_index=phase_index)
+        check_room_state_rules(room, phase_index=phase_index) #when a user 'GET's then we check the room/phase rules
 
         posts_qs = Post.objects.filter(room=room, phase_index=phase_index, activity_run_id=room.activity_run_id).order_by("created_at")
         interventions_qs = Intervention.objects.filter(
@@ -256,7 +255,7 @@ def messages(request):
     )
 
     
-    check_all_rules(room, post)
+    check_post_rules(room, post) #only checks the post rules if a message is sent
 
     return JsonResponse(PostSerializer(post).data, status=201)
 

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'message_board.apps.MessageBoardConfig', #importing the agent timer
     'core',
     'message_board',
     'corsheaders',

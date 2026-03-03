@@ -3,10 +3,13 @@ from django.utils import timezone
 from django.db.models import Count
 from .models import Post, Agent, Intervention, RoomMember, EvidenceNudgeState
 import re
+from urllib.parse import urlparse
 
 INDIVIDUAL_INACTIVITY_THRESHOLD = timedelta(minutes=2)
 INDIVIDUAL_INACTIVITY_COOLDOWN = timedelta(minutes=2)
 JOIN_GRACE_PERIOD = timedelta(minutes=2)
+DOMAIN_DIVERSITY_THRESHOLD = 2
+DOMAIN_DIVERSITY_COOLDOWN = timedelta(minutes=3)
 
 
 EQUITY_COOLDOWN = timedelta(minutes=5)
@@ -335,22 +338,91 @@ def check_short_message_rule(room, post) -> bool:
     _create(room, agent, rule_name, message, explanation, post.phase_index, recipient=post.author)
     return True
 
+def check_source_diversity_rule(room, phase_index=None) -> bool:
+    agent = _agent("Evidence Agent", "Encourages using a variety of source locations to enrich discussions and remove potential bias.")
+    rule_name = f"source_diversity_check"
 
-def check_all_rules(room, new_post=None):
-    # check each post for each rules
+    cooldown_since = timezone.now() - DOMAIN_DIVERSITY_COOLDOWN
+    if _recent(room, agent, rule_name, cooldown_since, phase_index): #checks cooldown before going through any more logic
+        return False
+
+    posts_with_links = Post.objects.filter( #gets all the posts containing a link in the current phase
+        room = room,
+        phase_index = phase_index,
+        content__icontains = "http"
+    )
+
+    if posts_with_links.count() < DOMAIN_DIVERSITY_THRESHOLD: #checks if the amount of posts is less than the threshold
+        return False
+    
+    domain_counts = {}
+    url_pattern = r'https?://[^\s]+)'
+
+    for post in posts_with_links: #for loop extracts and counts all the domains
+        urls = re.findall(url_pattern, post.content)
+        for url in urls:
+            try:
+                domain = urlparse(urls).netloc.lower() #filters the urls to be only the site and makes it all lower case, to diversify source location
+                if domain: #checks we aren't getting empty strings
+                    domain = domain.replace("www.", "") #gets rid of www. as some links may not have added this
+                    domain_counts[domain] = domain_counts.get(domain, 0) + 1 #adds one to the count of the found domain, or add it to the list
+            except Exception:
+                continue
+
+    overused_domains = [] #create a list to handle two or more overused domains although this is unlikely
+    for domain, count in domain_counts.items():
+        if count >= DOMAIN_DIVERSITY_THRESHOLD:
+            overused_domains.append(domain)
+    
+    if not overused_domains:
+        return False
+    
+    if len(overused_domains) == 1: #changes the message based on the amount of overused domains
+        domains_text = f"'{overused_domains[0]}'"
+    else:
+        domains_text = ", ".join(f"'{d}'" for d in overused_domains[:-1]) + f", and '{overused_domains[-1]}'"
+    
+    explanation = f"The domain(s) {domains_text} have been cited {DOMAIN_DIVERSITY_THRESHOLD} or more times in this phase, which may limit the diversity of perspectives."
+    message = f"Let's try to include sources from a wider variety of places to enrich our discussion and get different perspectives!"
+
+    _create(room, agent, rule_name, message, explanation, phase_index)
+    return True
+
+#the check rules functions have been split for better performance and to allow regular checks on room/phase rules
+
+def check_room_state_rules(room, phase_index=None): #only checks the rules that apply to the whole room/phase
     triggered = []
-
-    phase_index = getattr(new_post, "phase_index", None)
+    
+    if check_individual_inactivity_rule(room, phase_index=phase_index):
+        triggered.append("individual_inactivity")
     if check_equity_rule(room, phase_index=phase_index):
         triggered.append("unequal_participation")
     if check_dominant_speaker_rule(room, phase_index=phase_index):
         triggered.append("dominant_speaker")
     if check_unanswered_question_rule(room, phase_index=phase_index):
         triggered.append("unanswered_question")
-    if new_post and check_evidence_rule(room, new_post):
-        triggered.append("missing_evidence")
-    if new_post and check_short_message_rule(room, new_post):
-        triggered.append("short_message")
+    if check_source_diversity_rule(room, phase_index=phase_index):
+        triggered.append("source_diversity")
+        
+    return triggered
 
+def check_post_rules(room, post): #only checks rules that apply to posts
+    triggered = []
+    
+    if check_evidence_rule(room, post):
+        triggered.append("missing_evidence")
+    if check_short_message_rule(room, post):
+        triggered.append("short_message")
+        
+    return triggered
+
+def check_all_rules(room, new_post=None): #checks both post rules and room/phase rules
+    phase_index = getattr(new_post, "phase_index", None)
+    
+    triggered = check_room_state_rules(room, phase_index=phase_index)
+    
+    if new_post:
+        triggered += check_post_rules(room, new_post)
+        
     return triggered
 
