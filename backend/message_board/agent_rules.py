@@ -8,9 +8,9 @@ from urllib.parse import urlparse
 INDIVIDUAL_INACTIVITY_THRESHOLD = timedelta(minutes=2)
 INDIVIDUAL_INACTIVITY_COOLDOWN = timedelta(minutes=2)
 JOIN_GRACE_PERIOD = timedelta(minutes=2)
+
 DOMAIN_DIVERSITY_THRESHOLD = 2
 DOMAIN_DIVERSITY_COOLDOWN = timedelta(minutes=3)
-
 
 EQUITY_COOLDOWN = timedelta(minutes=5)
 
@@ -20,6 +20,17 @@ EVIDENCE_KEYWORDS = [
     "http://", "https://", "for example", "for instance", "e.g."
 ]
 
+DEBATE_WINDOW_SIZE = 6 #number of messages to look back on for echo chamber rule
+DEBATE_COOLDOWN = timedelta(minutes=3)
+AGREEMENT_KEYWORDS = [ #keywords for agreement/good debate
+    "agree", "yes", "exactly", "definitely", "correct", 
+    "right", "totally", "i think so too", "same here"
+]
+DEBATE_KEYWORDS = [
+    "but", "however", "disagree", "although", "unless", "alternative", "counter",
+    "on the other hand", "i see it differently", "i dont think so",
+    "not necessarily"
+]
 
 CITATION_PATTERNS = [
     r"\[\d+\]",
@@ -76,6 +87,7 @@ def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, 
         recipient=recipient, 
     )
     
+
 def check_individual_inactivity_rule(room, phase_index=None):
     # if they have not posted within inactivity window nudge them, theres a cooldown if they were nudged recently
     now = timezone.now()
@@ -167,6 +179,7 @@ def check_equity_rule(room, phase_index=None) -> bool:
 
     return triggered
 
+
 def message_lacks_evidence(text: str) -> bool:
     # flag longer messages that dont have evidence words
     t = (text or "").strip().lower()
@@ -247,6 +260,7 @@ def check_evidence_rule(room, post) -> bool:
     )
 
     return True
+
 
 def check_dominant_speaker_rule(room, phase_index=None) -> bool:
     # if the same user posts multiple messages in a row they get a nudge
@@ -338,6 +352,7 @@ def check_short_message_rule(room, post) -> bool:
     _create(room, agent, rule_name, message, explanation, post.phase_index, recipient=post.author)
     return True
 
+
 def check_source_diversity_rule(room, phase_index=None) -> bool:
     agent = _agent("Evidence Agent", "Encourages using a variety of source locations to enrich discussions and remove potential bias.")
     rule_name = f"source_diversity_check"
@@ -387,6 +402,42 @@ def check_source_diversity_rule(room, phase_index=None) -> bool:
 
     _create(room, agent, rule_name, message, explanation, phase_index)
     return True
+
+
+def check_echo_chamber_rule(room, phase_index=None) -> bool:
+    agent = _agent("Socratic Agent", "Encourages learners to challange each others ideas.")
+    rule_name = "check_echo_chamber"
+
+    cooldown_since = timezone.now() - DEBATE_COOLDOWN
+    if _recent(room, agent, rule_name, cooldown_since, phase_index): #checks cooldown before going through any more logic
+        return False
+
+    recent_posts = Post.objects.filter( #creates a list of the last 'DEBATE_WINDOW_SIZE' posts in the current phase
+        room=room,
+        phase_index=phase_index,
+    ).order_by('-created_at')[:DEBATE_WINDOW_SIZE]
+
+    if recent_posts.count() < DEBATE_WINDOW_SIZE: #checks if there are enough posts to check the rule
+        return False
+    
+    posts_text = [p.content.lower() for p in recent_posts] #makes the list of posts all lower case for easier checks against keywords
+
+    has_debate = any(any(k in text for k in DEBATE_KEYWORDS) for text in posts_text) #checks if there is any debate keywords in the posts
+    has_questions = any("?" in text for text in posts_text) #checks if there are any questions in the posts, could indicate healthy debate
+
+    if has_debate or has_questions:
+        return False
+    
+    agreement_count = sum(any(k in text for k in AGREEMENT_KEYWORDS) for text in posts_text) #counts how many of the posts have agreement keywords
+    if agreement_count < (DEBATE_WINDOW_SIZE * 0.75): #if theres not a strong agreement then its likely there isnt an echo chamber
+        return False
+    
+    explanation = f"The last {DEBATE_WINDOW_SIZE} messages contain high agreement levels, indicating an echo chamber."
+    message = f"There seems to be a lot of agreement here! Lets try to test your ideas, what might be on the other side of this argument?"
+    
+    _create(room, agent, rule_name, message, explanation, phase_index)
+    return True
+
 
 #the check rules functions have been split for better performance and to allow regular checks on room/phase rules
 
