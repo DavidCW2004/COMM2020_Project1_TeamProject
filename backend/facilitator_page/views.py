@@ -11,6 +11,19 @@ from message_board.models import Activity, Room, SessionSummary, Post
 from message_board.serializers import ActivitySerializer
 from message_board.summary_service import generate_summary
 from message_board.pdf_generator import generate_summary_pdf # Not used yet but may be used for generating pdf's later (maybe in manage session summary)
+from .serializers import FacilitatorAgentSerializer
+from message_board.models import Agent
+
+PRIVILEGED_ROLES = {"facilitator", "maintainer"} #centralize the privledfge role chceks
+
+
+def _is_privileged(user):
+    return user.is_authenticated and user.last_name in PRIVILEGED_ROLES
+
+
+def _is_maintainer(user):
+    return user.is_authenticated and user.last_name == "maintainer"
+
 
 # Allows the facilitator to create and edit activities
 class FacilitatorActivityViewSet(viewsets.ModelViewSet):
@@ -19,21 +32,48 @@ class FacilitatorActivityViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        if request.user.last_name != "facilitator": # Checks if the user is a facilitator
-            return Response({"detail": "Only facilitators can create activities."}, status=status.HTTP_403_FORBIDDEN)
+        if not _is_privileged(request.user):
+            return Response({"detail": "Facilitator or maintainer access required."}, status=status.HTTP_403_FORBIDDEN) #leaners cant create activies
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        if request.user.last_name != "facilitator":
-            return Response({"detail": "Only facilitators can edit activities."}, status=status.HTTP_403_FORBIDDEN)
+        if not _is_maintainer(request.user):
+            return Response({"detail": "Maintainer access required."}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not _is_maintainer(request.user):
+            return Response({"detail": "Maintainer access required."}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
+
+class FacilitatorAgentViewSet(viewsets.ModelViewSet):
+    queryset = Agent.objects.all().order_by("name")
+    serializer_class = FacilitatorAgentSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch"]
+
+    def list(self, request, *args, **kwargs):
+        if not _is_privileged(request.user):
+            return Response({"detail": "Facilitator or maintainer access required."}, status=status.HTTP_403_FORBIDDEN)
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        if not _is_privileged(request.user):
+            return Response({"detail": "Facilitator or maintainer access required."}, status=status.HTTP_403_FORBIDDEN)
+        return super().retrieve(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not _is_maintainer(request.user):
+            return Response({"detail": "Maintainer access required."}, status=status.HTTP_403_FORBIDDEN)
+        return super().partial_update(request, *args, **kwargs) #toggle if its active orr not
 
 # Where the facilitator can view all rooms
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def facilitator_dashboard_stats(request):
-    if request.user.last_name != "facilitator":
-        return JsonResponse({"detail": "Facilitator access required"}, status=403)
+    if not _is_privileged(request.user):
+        return JsonResponse({"detail": "Facilitator or maintainer access required"}, status=403)
 
     rooms = Room.objects.all()
     room_data = []
@@ -54,8 +94,8 @@ def facilitator_dashboard_stats(request):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def manage_session_summary(request, room_code):
-    if request.user.last_name != "facilitator":
-        return JsonResponse({"detail": "Facilitator access required"}, status=403)
+    if not _is_privileged(request.user):
+        return JsonResponse({"detail": "Facilitator or maintainer access required"}, status=403)
 
     try: #checks for rooms existence
         room = Room.objects.get(code=room_code.upper())
@@ -88,8 +128,8 @@ def manage_session_summary(request, room_code):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def export_facilitator_summary_pdf(request, room_code):
-    if request.user.last_name != "facilitator":
-        return JsonResponse({"detail": "Facilitator access required"}, status=403)
+    if not _is_privileged(request.user):
+        return JsonResponse({"detail": "Facilitator or maintainer access required"}, status=403)
 
     try:
         room = Room.objects.get(code=room_code.upper())

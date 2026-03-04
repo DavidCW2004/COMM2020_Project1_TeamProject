@@ -4,6 +4,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r"activities", views.FacilitatorActivityViewSet, basename="facilitator-activities") # So facilitator can view and change activities
+router.register(r"agents", views.FacilitatorAgentViewSet, basename="facilitator-agents") #used to display agents status list
 
 urlpatterns = [
     path("dashboard/", views.facilitator_dashboard_stats, name="facilitator_dashboard"), # Facilitators view of analytics    

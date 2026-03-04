@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from message_board.models import Activity, SessionSummary
+from message_board.models import Activity, Agent, SessionSummary
 
 class FacilitatorActivitySerializer(serializers.ModelSerializer): # Serializer for the facilitators authoring interface
     class Meta:
@@ -17,3 +17,9 @@ class FacilitatorSummarySerializer(serializers.ModelSerializer): # Serializer so
             'participation_data', 'process_data', 'quality_data', 
             'extracted_content', 'created_at'
         ]
+
+
+class FacilitatorAgentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Agent
+        fields = ["id", "name", "description", "is_active"] #api needs to be exposed so that they can now be disabled

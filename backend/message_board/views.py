@@ -23,6 +23,11 @@ from datetime import timedelta
 from django.db.models import Count
 from django.contrib.auth.hashers import make_password, check_password
 
+PRIVILEGED_ROLES = {"facilitator", "maintainer"}
+
+
+def _is_privileged(user):
+    return user.is_authenticated and user.last_name in PRIVILEGED_ROLES
 
 
 
@@ -523,8 +528,7 @@ def session_summary(request, code):
         summary = generate_summary(room, activity_run_id)
 
     # Determine user role for view filtering
-    user_role = request.user.last_name  # "learner" or "facilitator"
-    is_facilitator = user_role == "facilitator"
+    is_facilitator = _is_privileged(request.user) #check if the user is a facilitator
 
     final_answer = _get_final_answer(room, activity_run_id)
     final_answer_votes = 0
@@ -638,9 +642,8 @@ def export_summary_pdf(request, code):
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Authentication required"}, status=401)
 
-    # Check facilitator role
-    if request.user.last_name != "facilitator":
-        return JsonResponse({"detail": "Facilitator access required"}, status=403)
+    if not _is_privileged(request.user):
+        return JsonResponse({"detail": "Facilitator or maintainer access required"}, status=403)
 
     code = (code or "").strip().upper()
 

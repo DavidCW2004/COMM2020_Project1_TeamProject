@@ -38,8 +38,8 @@ def temp_login(request):
 
 	if not display_name:
 		return JsonResponse({"detail": "display_name is required"}, status=400)
-	if role and role not in {"learner", "facilitator"}:
-		return JsonResponse({"detail": "role is invalid"}, status=400)
+	if role and role not in {"learner", "facilitator", "maintainer"}:
+		return JsonResponse({"detail": "role is invalid"}, status=400) #if the request doesnt have one of these roles then its not right
 
 	base = slugify(display_name) or "user"
 	username = f"{base}-{get_random_string(6)}"

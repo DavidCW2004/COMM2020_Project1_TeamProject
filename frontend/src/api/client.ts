@@ -67,9 +67,17 @@ export type ActivityDTO = {
 	id: number;
 	name: string;
 	description?: string | null;
+	activity_type?: string;
 	phases?: ActivityPhase[] | any;
 	assessment_criteria?: string[] | any;
 	created_at?: string;
+};
+
+export type AgentDTO = {
+	id: number;
+	name: string;
+	description?: string;
+	is_active: boolean;
 };
 
 export type RoomListItem = {
@@ -313,6 +321,20 @@ export async function fetchFacilitatorActivities() {
 	return res.json();
 }
 
+export async function fetchFacilitatorAgents() {
+	const res = await fetch(`${API_BASE_URL}api/facilitator/agents/`, {
+		method: "GET",
+		credentials: "include",
+	});
+
+	if (!res.ok) {
+		const error = await res.json().catch(() => ({}));
+		throw new Error(buildError(error.detail, "Failed to fetch agents"));
+	}
+
+	return (await res.json()) as AgentDTO[]; //get agents list
+}
+
 export async function createFacilitatorActivity(payload: any) {
 	const url = `${API_BASE_URL}api/facilitator/activities/`;
 	return authedJson(url, { method: "POST", body: JSON.stringify(payload) });
@@ -413,10 +435,13 @@ async function authedJson(url: string, init: RequestInit = {}) {
 		...(init.headers as Record<string, string> | undefined),
 	};
 
+	const method = (init.method || "GET").toUpperCase();
+	const needsCsrf = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+
 	if (init.body) {
 		headers["Content-Type"] = "application/json";
-		if (csrf) headers["X-CSRFToken"] = csrf;
 	}
+	if (needsCsrf && csrf) headers["X-CSRFToken"] = csrf;
 
 	const res = await fetch(url, { credentials: "include", ...init, headers });
 
@@ -425,12 +450,22 @@ async function authedJson(url: string, init: RequestInit = {}) {
 		throw new Error(err.detail || `Request failed (${res.status})`);
 	}
 
+	if (res.status === 204) return null;
+
+	const contentType = res.headers.get("content-type") || "";
+	if (!contentType.includes("application/json")) return null;
+
 	return res.json();
 }
 
 export async function deleteFacilitatorActivity(id: number): Promise<void> {
 	const url = `${API_BASE_URL}api/facilitator/activities/${id}/`;
 	await authedJson(url, { method: "DELETE" });
+}
+
+export async function updateFacilitatorAgent(id: number, payload: Partial<AgentDTO>) {
+	const url = `${API_BASE_URL}api/facilitator/agents/${id}/`;
+	return authedJson(url, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
 export async function fetchRooms(): Promise<RoomListItem[]> {
