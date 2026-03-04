@@ -46,6 +46,15 @@ TURN_TAKING_COOLDOWN = timedelta(minutes=3)
 LINK_CONTECT_MIN_LENGTH = 30
 LINK_CONTEXT_COOLDOWN = timedelta(minutes=1)
 
+#Emotive language keywords
+TOXICITY_KEYWORDS = [
+    "stupid", "dumb", "clueless", "idiot", "shut up", "wrong", 
+    "ridiculous", "nonsense", "ignore", "whatever"
+]
+DISMISSIVE_PHRASES = [
+    "you don't know", "you're wrong", "stop talking", "not true"
+]
+
 CITATION_PATTERNS = [
     r"\[\d+\]",
     r"\(\s*\d{4}\s*\)",  
@@ -526,7 +535,7 @@ def check_source_context_rule(room, post) -> bool:
     if _recent(room, agent, rule_name, cool_down_since, post.phase_index,recipient=post.author):
           return False
     
-    content = (post.content or "").strip()
+    content = (post.content or "").strip() #defines content as an empty string incase somehow an empty message was sent
     urls = re.findall(r'https?[^\s]+', content)
     if not urls:
         return False
@@ -538,12 +547,34 @@ def check_source_context_rule(room, post) -> bool:
     if len(content) >= LINK_CONTECT_MIN_LENGTH:
         return False
     
-    explantion = f"User provided a link but only {len(content)} characters of context, threshold is {LINK_CONTECT_MIN_LENGTH}"
+    explanation = f"User provided a link but only {len(content)} characters of context, threshold is {LINK_CONTECT_MIN_LENGTH}"
     message = f"Thanks for sharing the link, to help the group could you please add a bit more context to the source."
 
-    _create(room, agent, rule_name, message, explantion, post.phase_index)
+    _create(room, agent, rule_name, message, explanation, post.phase_index)
     return True
 
+
+def check_rude_message_rule(room, post) -> bool:
+    agent = _agent("Equity Agent", "Promotes respectful and constructive communication.")
+    rule_name = f"rude_message:user={post.auther.id}"
+
+    #no cooldown for this agent since this must be checked with every message and should get flagged everytime even if flags occur in a short time span
+
+    content = (post.content or "").strip()
+    is_shouting = content.isupper() and len(content) > 5
+
+    content = content.lower()
+    has_toxic_word = any(k in content for k in TOXICITY_KEYWORDS)
+    has_dismissive_phrase = any(p in content for p in DISMISSIVE_PHRASES)
+
+    if not (has_toxic_word or has_dismissive_phrase or is_shouting):
+        return False
+    
+    explanation = f"Message contains potentially hostile, dismissive language or excessive capitilisation."
+    message = f"Hi {post.auther.first_name or post.auther.username} lets try keep the conversation constructive"
+
+    _create(room, agent, rule_name, message, explanation, post.phase_index)
+    return True
 
 
 
@@ -581,6 +612,8 @@ def check_post_rules(room, post): #only checks rules that apply to posts
         triggered.append("rapid_fire")
     if check_source_context_rule(room, post):
         triggered.append("lacking_source_context")
+    if check_rude_message_rule(room, post):
+        triggered.append("Possible_rude_message")
         
     return triggered
 
