@@ -1,4 +1,3 @@
-import { createBrowserRouter } from "react-router-dom";
 import LoginPage from "../pages/LoginPage";
 import RoomsHubPage from "../pages/RoomsHubPage";
 import RoomDashboardPage from "../pages/RoomDashboardPage";
@@ -8,7 +7,9 @@ import SessionSummaryPage from "../pages/SessionSummaryPage";
 import FacilitatorDashboardPage from "../pages/FacilitatorDashboardPage";
 import FacilitatorRoomSummaryPage from "../pages/FacilitatorRoomSummaryPage";
 import RequireRoles from "../components/RequireRoles";
+import MaintainerActivitiesPage from "../pages/MaintainerActivitiesPage";
 import FacilitatorActivitiesPage from "../pages/FacilitatorActivitiesPage";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 
 export const router = createBrowserRouter([
     { path: "/", element: <LoginPage /> },
@@ -79,4 +80,28 @@ export const router = createBrowserRouter([
         ),
     },
 
+    {
+        path: "/maintainer",
+        element: (
+            <RequireRoles roles={["maintainer"]}>
+                <Navigate to="/maintainer/activities" replace />
+            </RequireRoles>
+        ),
+    },
+    {
+        path: "/maintainer/rooms/:code/summary",
+        element: (
+            <RequireRoles roles={["maintainer"]}>
+                <FacilitatorRoomSummaryPage />
+            </RequireRoles>
+        ),
+    },
+    {
+        path: "/maintainer/activities",
+        element: (
+            <RequireRoles roles={["maintainer"]}>
+                <MaintainerActivitiesPage />
+            </RequireRoles>
+        ),
+    },
 ]);

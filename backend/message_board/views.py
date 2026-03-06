@@ -26,8 +26,15 @@ from django.contrib.auth.hashers import make_password, check_password
 PRIVILEGED_ROLES = {"facilitator", "maintainer"}
 
 
+def _get_role(user):
+    if not user.is_authenticated:
+        return None
+    profile = getattr(user, "profile", None)
+    return getattr(profile, "role", None)
+
 def _is_privileged(user):
-    return user.is_authenticated and user.last_name in PRIVILEGED_ROLES
+    return _get_role(user) in PRIVILEGED_ROLES
+
 
 
 

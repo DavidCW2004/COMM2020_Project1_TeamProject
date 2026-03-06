@@ -6,6 +6,6 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("api/temp-login/", views.temp_login, name="temp_login"),
-    path("csrf/", views.csrf, name="csrf"),
-
+    path("api/maintainer-login/", views.maintainer_login, name="maintainer_login"),
+    path("api/csrf/", views.csrf, name="csrf"),
 ]

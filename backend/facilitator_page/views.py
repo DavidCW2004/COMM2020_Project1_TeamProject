@@ -17,12 +17,17 @@ from message_board.models import Agent
 PRIVILEGED_ROLES = {"facilitator", "maintainer"} #centralize the privledfge role chceks
 
 
-def _is_privileged(user):
-    return user.is_authenticated and user.last_name in PRIVILEGED_ROLES
+def _get_role(user):
+    if not user.is_authenticated:
+        return None
+    profile = getattr(user, "profile", None)
+    return getattr(profile, "role", None)
 
+def _is_privileged(user):
+    return _get_role(user) in PRIVILEGED_ROLES
 
 def _is_maintainer(user):
-    return user.is_authenticated and user.last_name == "maintainer"
+    return _get_role(user) == "maintainer"
 
 
 # Allows the facilitator to create and edit activities
