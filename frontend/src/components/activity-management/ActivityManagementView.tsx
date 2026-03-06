@@ -26,6 +26,35 @@ type Phase = {
     assessment_criteria: string[];
 };
 
+type AgentSettings = {
+    equity: {
+        enabled: boolean;
+        participation_gap: number;
+    };
+    inactivity: {
+        enabled: boolean;
+        idle_seconds: number;
+    };
+    evidence: {
+        enabled: boolean;
+        unsupported_claims_before_nudge: number;
+    };
+};
+
+const DEFAULT_AGENT_SETTINGS: AgentSettings = {
+    equity: {
+        enabled: true,
+        participation_gap: 2,
+    },
+    inactivity: {
+        enabled: true,
+        idle_seconds: 90,
+    },
+    evidence: {
+        enabled: true,
+        unsupported_claims_before_nudge: 1,
+    },
+};
 type ActivityType = "problem-solving" | "discussion" | "design critique";
 
 const ACTIVITY_TYPES: ActivityType[] = ["problem-solving", "discussion", "design critique"];
@@ -39,6 +68,25 @@ function normalizePhaseName(value: unknown): string {
     const asString = String(value ?? "").trim().toLowerCase();
     return (PHASE_NAME_OPTIONS as readonly string[]).includes(asString) ? asString : "understand";
 }
+
+function normalizeAgentSettings(raw: any): AgentSettings {
+    return {
+        equity: {
+            enabled: raw?.equity?.enabled ?? true,
+            participation_gap: Number(raw?.equity?.participation_gap) || 2,
+        },
+        inactivity: {
+            enabled: raw?.inactivity?.enabled ?? true,
+            idle_seconds: Number(raw?.inactivity?.idle_seconds) || 90,
+        },
+        evidence: {
+            enabled: raw?.evidence?.enabled ?? true,
+            unsupported_claims_before_nudge:
+                Number(raw?.evidence?.unsupported_claims_before_nudge) || 1,
+        },
+    };
+}
+
 
 function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
     const { className, ...rest } = props;
@@ -90,6 +138,8 @@ function extractCriteria(phases: Phase[]): string[] {
 }
 
 export default function ActivityManagementView({ mode }: Props) {
+    const [agentSettings, setAgentSettings] = useState<AgentSettings>(DEFAULT_AGENT_SETTINGS);
+
     const navigate = useNavigate();
     const isMaintainer = mode === "maintainer";
     const dashboardPath = "/facilitator";
@@ -140,6 +190,7 @@ export default function ActivityManagementView({ mode }: Props) {
         setActivityType("discussion");
         setGlobalCriteria([]);
         setCriteriaDraft("");
+        setAgentSettings(DEFAULT_AGENT_SETTINGS);
         setPhases([{ name: "understand", prompt: "", duration_seconds: 420, assessment_criteria: [] }]);
     }
 
@@ -196,6 +247,7 @@ export default function ActivityManagementView({ mode }: Props) {
         setCriteriaDraft("");
         setSuccess(null);
         setError(null);
+        setAgentSettings(normalizeAgentSettings(activity.agent_settings));
     }
 
     async function submit() {
@@ -232,12 +284,8 @@ export default function ActivityManagementView({ mode }: Props) {
                 time_limit_minutes: Number((p.duration_seconds / 60).toFixed(3)),
                 assessment_criteria: p.assessment_criteria ?? [],
             })),
+            agent_settings: agentSettings,
         };
-
-        if (editingActivityId && !isMaintainer) {
-            setError("Only maintainers can edit activities.");
-            return;
-        }
 
         setBusy(true);
         try {
@@ -448,6 +496,151 @@ export default function ActivityManagementView({ mode }: Props) {
 
                         <div className="space-y-2">
                             <h3 className="font-medium">Assessment criteria</h3>
+                            <div className="space-y-3">
+                                <h3 className="font-medium">Agent settings</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Configure how support agents behave for this activity.
+                                </p>
+
+                                <div className="rounded-lg border border-border p-3 space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div>
+                                            <div className="font-medium">Equity agent</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                Detects uneven participation.
+                                            </div>
+                                        </div>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={agentSettings.equity.enabled}
+                                                onChange={(e) =>
+                                                    setAgentSettings((prev) => ({
+                                                        ...prev,
+                                                        equity: { ...prev.equity, enabled: e.target.checked },
+                                                    }))
+                                                }
+                                                disabled={busy}
+                                            />
+                                            Enabled
+                                        </label>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-sm font-medium">Participation gap threshold</label>
+                                        <div className="mt-1">
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                value={String(agentSettings.equity.participation_gap)}
+                                                onChange={(e) =>
+                                                    setAgentSettings((prev) => ({
+                                                        ...prev,
+                                                        equity: {
+                                                            ...prev.equity,
+                                                            participation_gap: Number(e.target.value) || 1,
+                                                        },
+                                                    }))
+                                                }
+                                                disabled={busy || !agentSettings.equity.enabled}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-border p-3 space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div>
+                                            <div className="font-medium">Inactivity agent</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                Nudges inactive participants.
+                                            </div>
+                                        </div>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={agentSettings.inactivity.enabled}
+                                                onChange={(e) =>
+                                                    setAgentSettings((prev) => ({
+                                                        ...prev,
+                                                        inactivity: { ...prev.inactivity, enabled: e.target.checked },
+                                                    }))
+                                                }
+                                                disabled={busy}
+                                            />
+                                            Enabled
+                                        </label>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-sm font-medium">Idle seconds before nudge</label>
+                                        <div className="mt-1">
+                                            <Input
+                                                type="number"
+                                                min={10}
+                                                value={String(agentSettings.inactivity.idle_seconds)}
+                                                onChange={(e) =>
+                                                    setAgentSettings((prev) => ({
+                                                        ...prev,
+                                                        inactivity: {
+                                                            ...prev.inactivity,
+                                                            idle_seconds: Number(e.target.value) || 10,
+                                                        },
+                                                    }))
+                                                }
+                                                disabled={busy || !agentSettings.inactivity.enabled}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-border p-3 space-y-3">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div>
+                                            <div className="font-medium">Evidence agent</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                Nudges users to support claims.
+                                            </div>
+                                        </div>
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={agentSettings.evidence.enabled}
+                                                onChange={(e) =>
+                                                    setAgentSettings((prev) => ({
+                                                        ...prev,
+                                                        evidence: { ...prev.evidence, enabled: e.target.checked },
+                                                    }))
+                                                }
+                                                disabled={busy}
+                                            />
+                                            Enabled
+                                        </label>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-sm font-medium">Unsupported claims before nudge</label>
+                                        <div className="mt-1">
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                value={String(agentSettings.evidence.unsupported_claims_before_nudge)}
+                                                onChange={(e) =>
+                                                    setAgentSettings((prev) => ({
+                                                        ...prev,
+                                                        evidence: {
+                                                            ...prev.evidence,
+                                                            unsupported_claims_before_nudge:
+                                                                Number(e.target.value) || 1,
+                                                        },
+                                                    }))
+                                                }
+                                                disabled={busy || !agentSettings.evidence.enabled}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div className="flex gap-2">
                                 <Input
                                     value={criteriaDraft}
@@ -500,15 +693,16 @@ export default function ActivityManagementView({ mode }: Props) {
                                                     {activity.activity_type || "discussion"}
                                                 </p>
                                             </div>
-                                            {isMaintainer ? (
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        variant="secondary"
-                                                        onClick={() => beginEditActivity(activity)}
-                                                        disabled={busy}
-                                                    >
-                                                        Edit
-                                                    </Button>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => beginEditActivity(activity)}
+                                                    disabled={busy}
+                                                >
+                                                    Edit
+                                                </Button>
+
+                                                {isMaintainer ? (
                                                     <Button
                                                         variant="secondary"
                                                         onClick={() => void removeActivity(activity)}
@@ -516,8 +710,8 @@ export default function ActivityManagementView({ mode }: Props) {
                                                     >
                                                         Delete
                                                     </Button>
-                                                </div>
-                                            ) : null}
+                                                ) : null}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

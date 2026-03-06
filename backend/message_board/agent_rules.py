@@ -5,6 +5,52 @@ from .models import Post, Agent, Intervention, RoomMember, EvidenceNudgeState
 import re
 from urllib.parse import urlparse
 
+from copy import deepcopy
+
+DEFAULT_AGENT_SETTINGS = {
+    "equity": {
+        "enabled": True,
+        "participation_gap": 2,
+        "cooldown_seconds": 300,
+        "minimum_phase_posts": 3,
+    },
+    "inactivity": {
+        "enabled": True,
+        "idle_seconds": 120,
+        "cooldown_seconds": 120,
+        "join_grace_seconds": 120,
+    },
+    "evidence": {
+        "enabled": True,
+        "unsupported_claims_before_nudge": 3,
+        "min_interval_seconds": 90,
+    },
+}
+
+def get_activity_agent_settings(room):
+    activity = getattr(room, "selected_activity", None) or getattr(room, "activity", None)
+    raw = getattr(activity, "agent_settings", {}) or {}
+
+    merged = deepcopy(DEFAULT_AGENT_SETTINGS)
+
+    for key, defaults in merged.items():
+        raw_value = raw.get(key, {})
+        if isinstance(raw_value, dict):
+            defaults.update(raw_value)
+
+    return merged
+
+def get_agent_config(room, key: str) -> dict:
+    return get_activity_agent_settings(room).get(key, {})
+
+def phase_posts(room, phase_index=None):
+    qs = Post.objects.filter(room=room, activity_run_id=room.activity_run_id)
+    if phase_index is None:
+        qs = qs.filter(phase_index__isnull=True)
+    else:
+        qs = qs.filter(phase_index=phase_index)
+    return qs
+
 INDIVIDUAL_INACTIVITY_THRESHOLD = timedelta(minutes=2)
 INDIVIDUAL_INACTIVITY_COOLDOWN = timedelta(minutes=2)
 JOIN_GRACE_PERIOD = timedelta(minutes=2)
@@ -112,20 +158,25 @@ def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, 
     
 
 def check_individual_inactivity_rule(room, phase_index=None):
-    # if they have not posted within inactivity window nudge them, theres a cooldown if they were nudged recently
+    cfg = get_agent_config(room, "inactivity")
+    if not cfg.get("enabled", True):
+        return False
+
     now = timezone.now()
+    threshold = timedelta(seconds=int(cfg.get("idle_seconds", 120)))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", 120)))
+    join_grace = timedelta(seconds=int(cfg.get("join_grace_seconds", 120)))
 
     members_qs = room.members.all()
     if not members_qs.exists():
         return False
 
-    threshold_time = now - INDIVIDUAL_INACTIVITY_THRESHOLD
+    threshold_time = now - threshold
     active_user_ids = set(
-        Post.objects.filter(
-            room=room,
-            phase_index=phase_index,
-            created_at__gte=threshold_time,
-        ).values_list("author_id", flat=True).distinct()
+        phase_posts(room, phase_index=phase_index)
+        .filter(created_at__gte=threshold_time)
+        .values_list("author_id", flat=True)
+        .distinct()
     )
 
     agent = _agent(
@@ -133,7 +184,7 @@ def check_individual_inactivity_rule(room, phase_index=None):
         "Encourages quieter members to participate."
     )
 
-    cooldown_since = now - INDIVIDUAL_INACTIVITY_COOLDOWN
+    cooldown_since = now - cooldown
     triggered = False
 
     for user in members_qs:
@@ -141,7 +192,7 @@ def check_individual_inactivity_rule(room, phase_index=None):
             continue
 
         membership, _ = RoomMember.objects.get_or_create(room=room, user=user)
-        if now - membership.joined_at < JOIN_GRACE_PERIOD:
+        if now - membership.joined_at < join_grace:
             continue
 
         rule_name = f"individual_inactivity:user={user.id}"
@@ -154,7 +205,7 @@ def check_individual_inactivity_rule(room, phase_index=None):
             agent=agent,
             rule_name=rule_name,
             message=f"Hi {user.first_name or user.username} — we’d love your thoughts when you’re ready.",
-            explanation=f"{user.username} hasn’t posted in the last {INDIVIDUAL_INACTIVITY_THRESHOLD.seconds // 60} minutes (this phase).",
+            explanation=f"{user.username} hasn’t posted in the last {int(threshold.total_seconds() // 60)} minutes in this phase.",
             phase_index=phase_index,
             recipient=user,
         )
@@ -164,27 +215,43 @@ def check_individual_inactivity_rule(room, phase_index=None):
 
 
 def check_equity_rule(room, phase_index=None) -> bool:
-    # compare each member post count to threshold that is based on the average message in that phase, nudge members below
-    posts = Post.objects.filter(room=room, phase_index=phase_index)
-    if posts.count() < 3:
+    cfg = get_agent_config(room, "equity")
+    if not cfg.get("enabled", True):
+        return False
+
+    posts = phase_posts(room, phase_index=phase_index)
+    minimum_phase_posts = int(cfg.get("minimum_phase_posts", 3))
+    if posts.count() < minimum_phase_posts:
         return False
 
     total_users = room.members.count()
     if total_users < 2:
         return False
 
-    total_messages = posts.count()
-    expected_average = total_messages / total_users
-    threshold = expected_average * 0.5
+    participation_gap = int(cfg.get("participation_gap", 2))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", 300)))
 
-    agent = _agent("Equity Agent", "Encourages balanced participation and underrepresented voices.")
+    counts_by_user = {
+        member.id: posts.filter(author=member).count()
+        for member in room.members.all()
+    }
 
-    cooldown_since = timezone.now() - EQUITY_COOLDOWN
+    if not counts_by_user:
+        return False
+
+    max_count = max(counts_by_user.values())
+
+    agent = _agent(
+        "Equity Agent",
+        "Encourages balanced participation and underrepresented voices."
+    )
+
+    cooldown_since = timezone.now() - cooldown
     triggered = False
 
     for member in room.members.all():
-        member_count = posts.filter(author=member).count()
-        if member_count >= threshold:
+        member_count = counts_by_user.get(member.id, 0)
+        if (max_count - member_count) < participation_gap:
             continue
 
         rule_name = f"unequal_participation:user={member.id}"
@@ -192,8 +259,8 @@ def check_equity_rule(room, phase_index=None) -> bool:
             continue
 
         explanation = (
-            f"{member.username} has {member_count} messages this phase; "
-            f"below the participation threshold ({threshold:.1f})."
+            f"{member.username} has {member_count} messages this phase, "
+            f"which is {max_count - member_count} behind the most active participant."
         )
         message = f"{member.first_name or member.username}, your perspective would be really valuable here — want to jump in?"
 
@@ -235,11 +302,17 @@ SHORT_MESSAGE_COOLDOWN = timedelta(minutes=5)
 
 
 def check_evidence_rule(room, post) -> bool:
-    # if the user keeps posting stuff without evidence they get nudged
+    cfg = get_agent_config(room, "evidence")
+    if not cfg.get("enabled", True):
+        return False
+
     if not message_lacks_evidence(post.content):
         return False
 
-    agent = _agent("Evidence Agent", "Encourages evidence-based reasoning and clearer support for claims.")
+    agent = _agent(
+        "Evidence Agent",
+        "Encourages evidence-based reasoning and clearer support for claims."
+    )
 
     state, _ = EvidenceNudgeState.objects.get_or_create(
         room=room,
@@ -251,8 +324,11 @@ def check_evidence_rule(room, post) -> bool:
     state.flagged_count += 1
 
     now = timezone.now()
-    due_by_count = (state.flagged_count % EVIDENCE_NUDGE_EVERY_N_FLAGGED == 0)
-    due_by_time = (state.last_nudged_at is None) or (now - state.last_nudged_at >= EVIDENCE_NUDGE_MIN_INTERVAL)
+    nudge_every = int(cfg.get("unsupported_claims_before_nudge", 3))
+    min_interval = timedelta(seconds=int(cfg.get("min_interval_seconds", 90)))
+
+    due_by_count = (state.flagged_count % nudge_every == 0)
+    due_by_time = (state.last_nudged_at is None) or (now - state.last_nudged_at >= min_interval)
 
     if not (due_by_count or due_by_time):
         state.save(update_fields=["flagged_count"])
@@ -287,7 +363,7 @@ def check_evidence_rule(room, post) -> bool:
 
 def check_dominant_speaker_rule(room, phase_index=None) -> bool:
     # if the same user posts multiple messages in a row they get a nudge
-    posts = Post.objects.filter(room=room, phase_index=phase_index).order_by('-created_at')
+    posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')
     if posts.count() < DOMINANT_SPEAKER_THRESHOLD:
         return False
 
@@ -312,7 +388,6 @@ def check_dominant_speaker_rule(room, phase_index=None) -> bool:
     _create(room, agent, rule_name, message, explanation, phase_index, recipient=first_author)
     return True
 
-    return True
 
 
 def check_unanswered_question_rule(room, phase_index=None) -> bool:
@@ -320,11 +395,9 @@ def check_unanswered_question_rule(room, phase_index=None) -> bool:
     now = timezone.now()
     threshold_time = now - UNANSWERED_QUESTION_TIMEOUT
 
-    question_posts = Post.objects.filter(
-        room=room,
-        phase_index=phase_index,
-        content__contains='?',
-        created_at__lte=threshold_time
+    question_posts = phase_posts(room, phase_index=phase_index).filter(
+    content__contains='?',
+    created_at__lte=threshold_time,
     ).order_by('created_at')
 
     agent = _agent("Socratic Agent", "Encourages evidence-based reasoning and clearer support for claims.")
@@ -332,10 +405,8 @@ def check_unanswered_question_rule(room, phase_index=None) -> bool:
     triggered = False
 
     for question_post in question_posts:
-        later_posts = Post.objects.filter(
-            room=room,
-            phase_index=phase_index,
-            created_at__gt=question_post.created_at
+        later_posts = phase_posts(room, phase_index=phase_index).filter(
+            created_at__gt=question_post.created_at,
         ).exclude(author=question_post.author)
 
         if later_posts.exists():
@@ -384,17 +455,15 @@ def check_source_diversity_rule(room, phase_index=None) -> bool:
     if _recent(room, agent, rule_name, cooldown_since, phase_index): #checks cooldown before going through any more logic
         return False
 
-    posts_with_links = Post.objects.filter( #gets all the posts containing a link in the current phase
-        room = room,
-        phase_index = phase_index,
-        content__icontains = "http"
+    posts_with_links = phase_posts(room, phase_index=phase_index).filter(
+        content__icontains="http"
     )
 
     if posts_with_links.count() < DOMAIN_DIVERSITY_THRESHOLD: #checks if the amount of posts is less than the threshold
         return False
     
     domain_counts = {}
-    url_pattern = r'https?://[^\s]+)'
+    url_pattern = r'https?://[^\s]+'
 
     for post in posts_with_links: #for loop extracts and counts all the domains
         urls = re.findall(url_pattern, post.content)
@@ -435,10 +504,7 @@ def check_echo_chamber_rule(room, phase_index=None) -> bool:
     if _recent(room, agent, rule_name, cooldown_since, phase_index): #checks cooldown before going through any more logic
         return False
 
-    recent_posts = Post.objects.filter( #creates a list of the last 'DEBATE_WINDOW_SIZE' posts in the current phase
-        room=room,
-        phase_index=phase_index,
-    ).order_by('-created_at')[:DEBATE_WINDOW_SIZE]
+    recent_posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')[:DEBATE_WINDOW_SIZE]
 
     if recent_posts.count() < DEBATE_WINDOW_SIZE: #checks if there are enough posts to check the rule
         return False
@@ -471,10 +537,8 @@ def check_rapid_fire_rule(room, phase_index=None) -> bool:
         return False
 
     window_start = timezone.now() - RAPID_FIRE_WINDOW
-    recent_count = Post.objects.filter(
-        room = room,
-        phase_index = phase_index,
-        created_at__gte = window_start #gte says if the time is greater than or equal to window_start
+    recent_count = phase_posts(room, phase_index=phase_index).filter(
+        created_at__gte=window_start
     ).count()
 
     if recent_count < RAPID_FIRE_THRESHOLD:
@@ -495,10 +559,7 @@ def check_inclusivity_rule(room, phase_index=None) -> bool:
     if _recent(room, agent, rule_name, cooldown_since, phase_index):
         return False
     
-    recent_posts = Post.objects.filter(
-        room = room, 
-        phase_index = phase_index,
-    ).order_by('-created_at')[:TURN_TAKING_WINDOW]
+    recent_posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')[:TURN_TAKING_WINDOW]
 
     if recent_posts.count() < TURN_TAKING_WINDOW:
         return False
@@ -550,13 +611,13 @@ def check_source_context_rule(room, post) -> bool:
     explanation = f"User provided a link but only {len(content)} characters of context, threshold is {LINK_CONTECT_MIN_LENGTH}"
     message = f"Thanks for sharing the link, to help the group could you please add a bit more context to the source."
 
-    _create(room, agent, rule_name, message, explanation, post.phase_index)
+    _create(room, agent, rule_name, message, explanation, post.phase_index, recipient=post.author  )
     return True
 
 
 def check_rude_message_rule(room, post) -> bool:
     agent = _agent("Equity Agent", "Promotes respectful and constructive communication.")
-    rule_name = f"rude_message:user={post.auther.id}"
+    rule_name = f"rude_message:user={post.author.id}"
 
     #no cooldown for this agent since this must be checked with every message and should get flagged everytime even if flags occur in a short time span
 
@@ -571,9 +632,9 @@ def check_rude_message_rule(room, post) -> bool:
         return False
     
     explanation = f"Message contains potentially hostile, dismissive language or excessive capitilisation."
-    message = f"Hi {post.auther.first_name or post.auther.username} lets try keep the conversation constructive"
+    message = f"Hi {post.author.first_name or post.author.username} lets try keep the conversation constructive"
 
-    _create(room, agent, rule_name, message, explanation, post.phase_index)
+    _create(room, agent, rule_name, message, explanation, post.phase_index, recipient=post.author)
     return True
 
 
@@ -608,7 +669,7 @@ def check_post_rules(room, post): #only checks rules that apply to posts
         triggered.append("missing_evidence")
     if check_short_message_rule(room, post):
         triggered.append("short_message")
-    if check_rapid_fire_rule(room, post.phase_index):
+    if check_rapid_fire_rule(room, phase_index=post.phase_index):
         triggered.append("rapid_fire")
     if check_source_context_rule(room, post):
         triggered.append("lacking_source_context")

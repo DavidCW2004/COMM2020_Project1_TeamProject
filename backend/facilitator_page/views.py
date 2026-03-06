@@ -42,7 +42,7 @@ class FacilitatorActivityViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        if not _is_maintainer(request.user):
+        if not _is_privileged(request.user):
             return Response({"detail": "Maintainer access required."}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
 
