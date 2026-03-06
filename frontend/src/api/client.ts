@@ -1,10 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export type TempLoginResponse = {
+export type UserRole = "learner" | "facilitator" | "maintainer";
+
+export type AuthUserDTO = {
 	id: number;
 	username: string;
 	display_name: string;
-	role: string;
+	role: UserRole;
 };
 
 export type Message = {
@@ -89,9 +91,8 @@ export type RoomListItem = {
 	created_at: string;
 };
 
-export async function createTempAccount(displayName: string, role: "learner" | "facilitator"| "maintainer") {
+export async function createTempAccount(displayName: string,role: "learner" | "facilitator"): Promise<AuthUserDTO> {
 	const url = `${API_BASE_URL}api/temp-login/`;
-	console.log("Fetching:", url);
 
 	const response = await fetch(url, {
 		method: "POST",
@@ -105,17 +106,42 @@ export async function createTempAccount(displayName: string, role: "learner" | "
 		}),
 	});
 
-	console.log("Response status:", response.status);
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({}));
-		console.error("Response error:", error);
 		throw new Error(error.detail || "Failed to create temporary account");
 	}
 
-	const data = (await response.json()) as TempLoginResponse;
-	console.log("Response data:", data);
-	await ensureCsrfCookie();
+	const data = (await response.json()) as AuthUserDTO;
 	return data;
+}
+
+export async function maintainerLogin(
+	username: string,
+	password: string
+): Promise<AuthUserDTO> {
+	const url = `${API_BASE_URL}api/maintainer-login/`;
+
+	const csrf = getCookie("csrftoken");
+
+	const response = await fetch(url, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			...(csrf ? { "X-CSRFToken": csrf } : {}),
+		},
+		credentials: "include",
+		body: JSON.stringify({
+			username,
+			password,
+		}),
+	});
+
+	if (!response.ok) {
+		const error = await response.json().catch(() => ({}));
+		throw new Error(error.detail || "Failed to sign in as maintainer");
+	}
+
+	return (await response.json()) as AuthUserDTO;
 }
 
 
@@ -481,3 +507,4 @@ export async function fetchRooms(): Promise<RoomListItem[]> {
 
 	return res.json();
 }
+
