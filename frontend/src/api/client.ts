@@ -73,6 +73,8 @@ export type ActivityDTO = {
 	phases?: ActivityPhase[] | any;
 	assessment_criteria?: string[] | any;
 	created_at?: string;
+	agent_settings?: any;
+
 };
 
 export type AgentDTO = {
@@ -91,7 +93,7 @@ export type RoomListItem = {
 	created_at: string;
 };
 
-export async function createTempAccount(displayName: string,role: "learner" | "facilitator"): Promise<AuthUserDTO> {
+export async function createTempAccount(displayName: string, role: "learner" | "facilitator"): Promise<AuthUserDTO> {
 	const url = `${API_BASE_URL}api/temp-login/`;
 
 	const response = await fetch(url, {

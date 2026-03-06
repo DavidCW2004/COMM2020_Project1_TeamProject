@@ -90,6 +90,7 @@ class Activity(models.Model):
     activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES, default='discussion')
     phases = models.JSONField(default=list)
     created_at = models.DateTimeField(default=timezone.now, blank=True, null=True)
+    agent_settings = models.JSONField(default=dict, blank=True)
     
     def __str__(self):
         return self.name

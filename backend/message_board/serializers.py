@@ -12,4 +12,4 @@ class PostSerializer(serializers.ModelSerializer):
 class ActivitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Activity
-        fields = ['id', 'name', 'description', 'activity_type', 'phases', 'created_at']
+        fields = ['id', 'name', 'description', 'activity_type', 'phases', 'created_at', 'agent_settings']
