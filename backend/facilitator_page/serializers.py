@@ -4,7 +4,7 @@ from message_board.models import Activity, Agent, SessionSummary
 class FacilitatorActivitySerializer(serializers.ModelSerializer): # Serializer for the facilitators authoring interface
     class Meta:
         model = Activity
-        fields = ['id', 'name', 'description', 'activity_type', 'phases', 'created_at']
+        fields = ['id', 'name', 'description', 'activity_type', 'phases', 'created_at', 'agent_settings', 'active_agents']
 
 class FacilitatorSummarySerializer(serializers.ModelSerializer): # Serializer so the facilitator can view session summaries
     activity_name = serializers.ReadOnlyField(source='activity.name')

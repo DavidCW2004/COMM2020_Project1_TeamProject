@@ -74,6 +74,7 @@ export type ActivityDTO = {
 	assessment_criteria?: string[] | any;
 	created_at?: string;
 	agent_settings?: any;
+	
 
 };
 

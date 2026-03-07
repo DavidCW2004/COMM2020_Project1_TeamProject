@@ -91,6 +91,7 @@ class Activity(models.Model):
     phases = models.JSONField(default=list)
     created_at = models.DateTimeField(default=timezone.now, blank=True, null=True)
     agent_settings = models.JSONField(default=dict, blank=True)
+    active_agents = models.ManyToManyField('Agent', related_name='activities', blank=True)
     
     def __str__(self):
         return self.name
