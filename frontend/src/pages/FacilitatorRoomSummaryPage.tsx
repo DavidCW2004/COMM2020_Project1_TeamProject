@@ -91,7 +91,6 @@ export default function FacilitatorRoomSummaryPage() {
                 <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="min-w-0">
-                            <div className="h-1.5 w-16 rounded-full bg-primary/80 mb-3" />
                             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {activityRunId ? `Run: ${activityRunId}` : "Latest run"}

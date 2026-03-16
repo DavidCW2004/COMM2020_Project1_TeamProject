@@ -1,34 +1,22 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createTempAccount, ensureCsrfCookie, maintainerLogin, } from "../api/client";
+import { createTempAccount, ensureCsrfCookie } from "../api/client";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
-type LoginRole = "learner" | "facilitator" | "maintainer";
+type LoginRole = "learner" | "facilitator";
 
 export default function LoginPage() {
     const [displayName, setDisplayName] = useState("");
     const [role, setRole] = useState<LoginRole>("learner");
-    const [maintainerUsername, setMaintainerUsername] = useState("");
-    const [maintainerPassword, setMaintainerPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
 
-    const isMaintainer = role === "maintainer";
-
     const disabled = useMemo(() => {
         if (isSubmitting) return true;
-
-        if (isMaintainer) {
-            return (
-                maintainerUsername.trim().length < 1 ||
-                maintainerPassword.trim().length < 1
-            );
-        }
-
         return displayName.trim().length < 2;
-    }, [displayName, isSubmitting, isMaintainer, maintainerUsername, maintainerPassword]);
+    }, [displayName, isSubmitting]);
 
     const onContinue = useCallback(async () => {
         if (disabled) return;
@@ -38,25 +26,6 @@ export default function LoginPage() {
 
         try {
             await ensureCsrfCookie();
-
-            if (role === "maintainer") {
-                const response = await maintainerLogin(
-                    maintainerUsername.trim(),
-                    maintainerPassword
-                );
-
-                const payload = {
-                    id: response.id,
-                    username: response.username,
-                    displayName: response.display_name,
-                    role: response.role,
-                    createdAt: new Date().toISOString(),
-                };
-
-                localStorage.setItem("sst:user", JSON.stringify(payload));
-                navigate("/maintainer/activities");
-                return;
-            }
 
             const response = await createTempAccount(displayName.trim(), role);
 
@@ -73,44 +42,29 @@ export default function LoginPage() {
             const nextPath = response.role === "facilitator" ? "/facilitator" : "/rooms";
             navigate(nextPath);
         } catch (err) {
-            const errorMessage =
-                err instanceof Error ? err.message : "Failed to sign in";
+            const errorMessage = err instanceof Error ? err.message : "Failed to sign in";
             setError(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
-    }, [
-        disabled,
-        displayName,
-        role,
-        navigate,
-        maintainerUsername,
-        maintainerPassword,
-    ]);
+    }, [disabled, displayName, role, navigate]);
 
     const roleCardClass = (isSelected: boolean) =>
         [
             "rounded-lg border p-4 text-left transition",
             "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             "hover:bg-muted/60 active:scale-[0.99]",
-            isSelected
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border bg-background",
+            isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-background",
         ].join(" ");
 
     const dotClass = (isSelected: boolean) =>
-        [
-            "h-4 w-4 rounded-full border transition",
-            isSelected ? "bg-primary border-primary" : "bg-background border-border",
-        ].join(" ");
+        ["h-4 w-4 rounded-full border transition", isSelected ? "bg-primary border-primary" : "bg-background border-border"].join(" ");
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
             <div className="mx-auto w-full max-w-2xl space-y-6">
                 <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 text-center space-y-2 shadow-sm">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Social Study Teammates
-                    </h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">Social Study Teammates</h1>
                     <p className="text-sm text-muted-foreground">
                         Collaborative learning with structured support
                     </p>
@@ -118,18 +72,17 @@ export default function LoginPage() {
 
                 <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
                     <div className="space-y-6">
+                        {/* Role selection */}
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <div className="text-base font-semibold">Role selection</div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setRole("facilitator");
-                                        setMaintainerUsername("");
-                                        setMaintainerPassword("");
                                         setError(null);
                                     }}
                                     className={roleCardClass(role === "facilitator")}
@@ -149,8 +102,6 @@ export default function LoginPage() {
                                     type="button"
                                     onClick={() => {
                                         setRole("learner");
-                                        setMaintainerUsername("");
-                                        setMaintainerPassword("");
                                         setError(null);
                                     }}
                                     className={roleCardClass(role === "learner")}
@@ -165,103 +116,37 @@ export default function LoginPage() {
                                         </div>
                                     </div>
                                 </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setRole("maintainer");
-                                        setDisplayName("");
-                                        setError(null);
-                                    }}
-                                    className={roleCardClass(role === "maintainer")}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <span className={dotClass(role === "maintainer")} />
-                                        <div className="min-w-0">
-                                            <div className="font-medium">Maintainer</div>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                Manage system & support
-                                            </p>
-                                        </div>
-                                    </div>
-                                </button>
                             </div>
                         </div>
 
-                        {!isMaintainer ? (
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium" htmlFor="displayName">
-                                    Display name
-                                </label>
+                        {/* Display name */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium" htmlFor="displayName">
+                                Display name
+                            </label>
 
-                                <Input
-                                    id="displayName"
-                                    type="text"
-                                    name="name"
-                                    value={displayName}
-                                    onChange={(e) => setDisplayName(e.target.value)}
-                                    placeholder="e.g. student A"
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") void onContinue();
-                                    }}
-                                />
+                            <Input
+                                id="displayName"
+                                type="text"
+                                name="name"
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                placeholder="e.g. student A"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") void onContinue();
+                                }}
+                            />
 
-                                <p className="text-xs text-muted-foreground">
-                                    Minimum 2 characters
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-                                    Maintainer access requires account credentials.
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium" htmlFor="maintainerUsername">
-                                        Username
-                                    </label>
-                                    <Input
-                                        id="maintainerUsername"
-                                        type="text"
-                                        value={maintainerUsername}
-                                        onChange={(e) => setMaintainerUsername(e.target.value)}
-                                        placeholder="e.g. Maintainer1"
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") void onContinue();
-                                        }}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium" htmlFor="maintainerPassword">
-                                        Password
-                                    </label>
-                                    <Input
-                                        id="maintainerPassword"
-                                        type="password"
-                                        value={maintainerPassword}
-                                        onChange={(e) => setMaintainerPassword(e.target.value)}
-                                        placeholder="Enter password"
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") void onContinue();
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex items-center justify-between">
-                            <details className="text-xs text-muted-foreground">
-                                <summary className="cursor-pointer select-none opacity-80">
-                                    Data & privacy
-                                </summary>
-                                <div className="mt-2 leading-snug opacity-80 max-w-[44ch]">
-                                    {isMaintainer
-                                        ? "Maintainer sign-in uses account credentials. Do not share them."
-                                        : "We store your display name and role to create a temporary account and let you join rooms. Avoid entering sensitive personal information."}
-                                </div>
-                            </details>
+                            <p className="text-xs text-muted-foreground">Minimum 2 characters</p>
                         </div>
+
+                        <details className="text-xs text-muted-foreground">
+                            <summary className="cursor-pointer select-none opacity-80">Data & privacy</summary>
+                            <div className="mt-2 leading-snug opacity-80 max-w-[44ch]">
+                                We store your display name and role to create a temporary account and let you join rooms.
+                                Avoid entering sensitive personal information.
+                            </div>
+                        </details>
 
                         {error && (
                             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -270,13 +155,7 @@ export default function LoginPage() {
                         )}
 
                         <Button onClick={() => void onContinue()} disabled={disabled} className="w-full">
-                            {isSubmitting
-                                ? isMaintainer
-                                    ? "Signing in…"
-                                    : "Creating…"
-                                : isMaintainer
-                                    ? "Sign in as maintainer"
-                                    : "Continue"}
+                            {isSubmitting ? "Creating…" : "Continue"}
                         </Button>
 
                         <p className="text-center text-xs text-muted-foreground">
