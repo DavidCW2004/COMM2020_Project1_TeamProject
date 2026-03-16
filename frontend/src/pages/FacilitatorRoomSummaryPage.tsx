@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { FacilitatorSessionSummary } from "../api/client";
-import {fetchFacilitatorRoomSummary,regenerateFacilitatorRoomSummary,exportFacilitatorSummaryPDF} from "../api/client";
+import { fetchFacilitatorRoomSummary, regenerateFacilitatorRoomSummary, exportFacilitatorSummaryPDF } from "../api/client";
 import { Button } from "../components/ui/button";
 
 type SummaryState =
@@ -526,7 +526,15 @@ function OutcomesSummary({ data }: { data: any }) {
                     <div className="rounded-lg border border-border bg-muted/20 p-4">
                         <div className="font-semibold text-sm">Final outcome</div>
                         <div className="mt-2 text-sm text-muted-foreground">
-                            {finalOutcome ? String(finalOutcome) : "—"}
+                            {finalOutcome ? (
+                                <div className="space-y-1">
+                                    <div>{String(finalOutcome.content ?? "—")}</div>
+                                    <div className="text-xs">
+                                        By <span className="font-medium text-foreground">{finalOutcome.author}</span>
+                                        {" · "}{formatTime(finalOutcome.timestamp)}
+                                    </div>
+                                </div>
+                            ) : "—"}
                         </div>
                     </div>
                 </div>
