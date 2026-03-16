@@ -30,6 +30,7 @@ export default function RoomDashboardPage() {
     const isActivityFinished = room?.activity?.finished === true;
 
     const [copiedCode, setCopiedCode] = useState(false);
+    const [noticeDismissed, setNoticeDismissed] = useState(false);
 
     const currentUser = useMemo(() => {
         const raw = localStorage.getItem("sst:user");
@@ -228,15 +229,28 @@ export default function RoomDashboardPage() {
                         </div>
                     </div>
                 </div>
+                {isMember && !noticeDismissed && (
+                    <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground flex items-center justify-between gap-4">
+                        <span>
+                            Your messages are visible to other room members. Facilitators can see participation summaries only — not individual messages.
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setNoticeDismissed(true)}
+                            className="shrink-0 text-xs underline hover:text-foreground transition"
+                        >
+                            Got it
+                        </button>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    <div className="lg:col-span-3 rounded-lg border border-border bg-background p-6 shadow-sm relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold">Members</h2>
-                            <div className="text-sm text-muted-foreground">
-                                {members.length} online
-                            </div>
+                    <div className="lg:col-span-3 rounded-lg border border-border bg-background p-6 shadow-sm relative overflow-visible">                        <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold">Members</h2>
+                        <div className="text-sm text-muted-foreground">
+                            {members.length} online
                         </div>
+                    </div>
 
                         <div className={isMember ? "mt-4" : "mt-4 blur-sm opacity-60 pointer-events-none select-none"}>
                             {members.length === 0 ? (
@@ -268,6 +282,7 @@ export default function RoomDashboardPage() {
                                                     ? "This room is private — enter the password to join."
                                                     : "This room is public — click join to enter."}
                                             </p>
+
                                         </div>
 
                                         {room.is_private && (

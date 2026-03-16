@@ -66,7 +66,7 @@ export default function Modal({ isOpen, onClose, children, footer }: ModalProps)
                     </button>
                 </div>
 
-                <div className="px-6 pb-5 pt-3 max-h-[70vh] overflow-auto">{children}</div>
+                <div className="px-6 pb-5 pt-3 max-h-[80vh] overflow-auto">{children}</div>
 
                 {footer && (
                     <div className="px-6 pb-6">
