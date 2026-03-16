@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export type UserRole = "learner" | "facilitator" | "maintainer";
+export type UserRole = "learner" | "facilitator" ;
 
 export type AuthUserDTO = {
 	id: number;
@@ -116,35 +116,6 @@ export async function createTempAccount(displayName: string, role: "learner" | "
 
 	const data = (await response.json()) as AuthUserDTO;
 	return data;
-}
-
-export async function maintainerLogin(
-	username: string,
-	password: string
-): Promise<AuthUserDTO> {
-	const url = `${API_BASE_URL}api/maintainer-login/`;
-
-	const csrf = getCookie("csrftoken");
-
-	const response = await fetch(url, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			...(csrf ? { "X-CSRFToken": csrf } : {}),
-		},
-		credentials: "include",
-		body: JSON.stringify({
-			username,
-			password,
-		}),
-	});
-
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({}));
-		throw new Error(error.detail || "Failed to sign in as maintainer");
-	}
-
-	return (await response.json()) as AuthUserDTO;
 }
 
 

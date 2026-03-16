@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { FacilitatorSessionSummary } from "../api/client";
-import {fetchFacilitatorRoomSummary,regenerateFacilitatorRoomSummary,exportFacilitatorSummaryPDF} from "../api/client";
+import { fetchFacilitatorRoomSummary, regenerateFacilitatorRoomSummary, exportFacilitatorSummaryPDF } from "../api/client";
 import { Button } from "../components/ui/button";
 
 type SummaryState =
@@ -91,7 +91,6 @@ export default function FacilitatorRoomSummaryPage() {
                 <div className="rounded-lg border border-border bg-background/80 backdrop-blur p-6 shadow-sm">
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="min-w-0">
-                            <div className="h-1.5 w-16 rounded-full bg-primary/80 mb-3" />
                             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 {activityRunId ? `Run: ${activityRunId}` : "Latest run"}
@@ -527,7 +526,15 @@ function OutcomesSummary({ data }: { data: any }) {
                     <div className="rounded-lg border border-border bg-muted/20 p-4">
                         <div className="font-semibold text-sm">Final outcome</div>
                         <div className="mt-2 text-sm text-muted-foreground">
-                            {finalOutcome ? String(finalOutcome) : "—"}
+                            {finalOutcome ? (
+                                <div className="space-y-1">
+                                    <div>{String(finalOutcome.content ?? "—")}</div>
+                                    <div className="text-xs">
+                                        By <span className="font-medium text-foreground">{finalOutcome.author}</span>
+                                        {" · "}{formatTime(finalOutcome.timestamp)}
+                                    </div>
+                                </div>
+                            ) : "—"}
                         </div>
                     </div>
                 </div>

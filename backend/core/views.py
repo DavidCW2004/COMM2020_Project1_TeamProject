@@ -66,35 +66,3 @@ def temp_login(request):
         }
     )
 
-@csrf_exempt
-def maintainer_login(request):
-    if request.method != "POST":
-        return JsonResponse({"detail": "Method not allowed"}, status=405)
-
-    try:
-        payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON"}, status=400)
-
-    username = (payload.get("username") or "").strip()
-    password = payload.get("password") or ""
-
-    if not username or not password:
-        return JsonResponse({"detail": "username and password are required"}, status=400)
-
-    user = authenticate(request, username=username, password=password)
-    if user is None:
-        return JsonResponse({"detail": "Invalid credentials"}, status=401)
-
-    if getattr(user.profile, "role", None) != "maintainer":
-        return JsonResponse({"detail": "Maintainer access required"}, status=403)
-
-    login(request, user)
-    return JsonResponse(
-        {
-            "id": user.id,
-            "username": user.username,
-            "display_name": user.first_name,
-            "role": user.profile.role,
-        }
-    )

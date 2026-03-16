@@ -10,7 +10,6 @@ class UserProfile(models.Model):
     ROLE_CHOICES = [
         ("learner", "Learner"),
         ("facilitator", "Facilitator"),
-        ("maintainer", "Maintainer"),
     ]
 
     user = models.OneToOneField(
