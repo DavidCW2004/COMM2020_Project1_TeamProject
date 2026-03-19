@@ -31,12 +31,54 @@ type AgentSettings = {
         enabled: boolean;
         unsupported_claims_before_nudge: number;
     };
+    rapid_fire: {
+        enabled: boolean;
+        threshold: number;
+        window_seconds: number;
+    };
+    dominant_speaker: {
+        enabled: boolean;
+        threshold: number;
+    };
+    source_diversity: {
+        enabled: boolean;
+        threshold: number;
+    };
+    echo_chamber: {
+        enabled: boolean;
+        window_size: number;
+        agreement_ratio: number;
+    };
+    inclusivity: {
+        enabled: boolean;
+        window_size: number;
+    };
+    short_message: {
+        enabled: boolean;
+        min_length: number;
+    };
+    unanswered_question: {
+        enabled: boolean;
+        timeout_seconds: number;
+    };
+    link_context: {
+        enabled: boolean;
+        min_length: number;
+    };
 };
 
 const DEFAULT_AGENT_SETTINGS: AgentSettings = {
     equity: { enabled: true, participation_gap: 2 },
     inactivity: { enabled: true, idle_seconds: 90 },
     evidence: { enabled: true, unsupported_claims_before_nudge: 1 },
+    rapid_fire: { enabled: true, threshold: 10, window_seconds: 60 },
+    dominant_speaker: { enabled: true, threshold: 3 },
+    source_diversity: { enabled: true, threshold: 2 },
+    echo_chamber: { enabled: true, window_size: 6, agreement_ratio: 0.75 },
+    inclusivity: { enabled: true, window_size: 6 },
+    short_message: { enabled: true, min_length: 10 },
+    unanswered_question: { enabled: true, timeout_seconds: 60 },
+    link_context: { enabled: true, min_length: 30 },
 };
 
 type ActivityType = "problem-solving" | "discussion" | "design critique";
@@ -65,6 +107,40 @@ function normalizeAgentSettings(raw: any): AgentSettings {
         evidence: {
             enabled: raw?.evidence?.enabled ?? true,
             unsupported_claims_before_nudge: Number(raw?.evidence?.unsupported_claims_before_nudge) || 1,
+        },
+        rapid_fire: {
+            enabled: raw?.rapid_fire?.enabled ?? true,
+            threshold: Number(raw?.rapid_fire?.threshold) || 10,
+            window_seconds: Number(raw?.rapid_fire?.window_seconds) || 60,
+        },
+        dominant_speaker: {
+            enabled: raw?.dominant_speaker?.enabled ?? true,
+            threshold: Number(raw?.dominant_speaker?.threshold) || 3,
+        },
+        source_diversity: {
+            enabled: raw?.source_diversity?.enabled ?? true,
+            threshold: Number(raw?.source_diversity?.threshold) || 2,
+        },
+        echo_chamber: {
+            enabled: raw?.echo_chamber?.enabled ?? true,
+            window_size: Number(raw?.echo_chamber?.window_size) || 6,
+            agreement_ratio: Number(raw?.echo_chamber?.agreement_ratio) || 0.75,
+        },
+        inclusivity: {
+            enabled: raw?.inclusivity?.enabled ?? true,
+            window_size: Number(raw?.inclusivity?.window_size) || 6,
+        },
+        short_message: {
+            enabled: raw?.short_message?.enabled ?? true,
+            min_length: Number(raw?.short_message?.min_length) || 10,
+        },
+        unanswered_question: {
+            enabled: raw?.unanswered_question?.enabled ?? true,
+            timeout_seconds: Number(raw?.unanswered_question?.timeout_seconds) || 60,
+        },
+        link_context: {
+            enabled: raw?.link_context?.enabled ?? true,
+            min_length: Number(raw?.link_context?.min_length) || 30,
         },
     };
 }
@@ -545,6 +621,163 @@ export default function ActivityManagementView() {
                                             disabled={busy || !agentSettings.evidence.enabled}
                                         />
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Rapid fire */}
+                        <div className="rounded-lg border border-border p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <div className="font-medium">Rapid-fire agent</div>
+                                    <div className="text-xs text-muted-foreground">Throttles fast message storms.</div>
+                                </div>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={agentSettings.rapid_fire.enabled}
+                                        onChange={(e) =>
+                                            setAgentSettings((prev) => ({
+                                                ...prev,
+                                                rapid_fire: { ...prev.rapid_fire, enabled: e.target.checked },
+                                            }))
+                                        }
+                                        disabled={busy}
+                                    />
+                                    Enabled
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label className="text-sm font-medium">Message threshold</label>
+                                    <div className="mt-1">
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            value={String(agentSettings.rapid_fire.threshold)}
+                                            onChange={(e) =>
+                                                setAgentSettings((prev) => ({
+                                                    ...prev,
+                                                    rapid_fire: {
+                                                        ...prev.rapid_fire,
+                                                        threshold: Number(e.target.value) || 1,
+                                                    },
+                                                }))
+                                            }
+                                            disabled={busy || !agentSettings.rapid_fire.enabled}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium">Window (seconds)</label>
+                                    <div className="mt-1">
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            value={String(agentSettings.rapid_fire.window_seconds)}
+                                            onChange={(e) =>
+                                                setAgentSettings((prev) => ({
+                                                    ...prev,
+                                                    rapid_fire: {
+                                                        ...prev.rapid_fire,
+                                                        window_seconds: Number(e.target.value) || 1,
+                                                    },
+                                                }))
+                                            }
+                                            disabled={busy || !agentSettings.rapid_fire.enabled}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Dominant speaker */}
+                        <div className="rounded-lg border border-border p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <div className="font-medium">Dominant speaker agent</div>
+                                    <div className="text-xs text-muted-foreground">Encourages turn-taking.</div>
+                                </div>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={agentSettings.dominant_speaker.enabled}
+                                        onChange={(e) =>
+                                            setAgentSettings((prev) => ({
+                                                ...prev,
+                                                dominant_speaker: { ...prev.dominant_speaker, enabled: e.target.checked },
+                                            }))
+                                        }
+                                        disabled={busy}
+                                    />
+                                    Enabled
+                                </label>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Consecutive message threshold</label>
+                                <div className="mt-1">
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        value={String(agentSettings.dominant_speaker.threshold)}
+                                        onChange={(e) =>
+                                            setAgentSettings((prev) => ({
+                                                ...prev,
+                                                dominant_speaker: {
+                                                    ...prev.dominant_speaker,
+                                                    threshold: Number(e.target.value) || 1,
+                                                },
+                                            }))
+                                        }
+                                        disabled={busy || !agentSettings.dominant_speaker.enabled}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Source diversity */}
+                        <div className="rounded-lg border border-border p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <div className="font-medium">Source diversity agent</div>
+                                    <div className="text-xs text-muted-foreground">Detects repeated sources/links.</div>
+                                </div>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={agentSettings.source_diversity.enabled}
+                                        onChange={(e) =>
+                                            setAgentSettings((prev) => ({
+                                                ...prev,
+                                                source_diversity: { ...prev.source_diversity, enabled: e.target.checked },
+                                            }))
+                                        }
+                                        disabled={busy}
+                                    />
+                                    Enabled
+                                </label>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Repeated domain threshold</label>
+                                <div className="mt-1">
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        value={String(agentSettings.source_diversity.threshold)}
+                                        onChange={(e) =>
+                                            setAgentSettings((prev) => ({
+                                                ...prev,
+                                                source_diversity: {
+                                                    ...prev.source_diversity,
+                                                    threshold: Number(e.target.value) || 1,
+                                                },
+                                            }))
+                                        }
+                                        disabled={busy || !agentSettings.source_diversity.enabled}
+                                    />
                                 </div>
                             </div>
                         </div>

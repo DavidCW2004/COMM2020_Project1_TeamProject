@@ -25,6 +25,48 @@ DEFAULT_AGENT_SETTINGS = {
         "unsupported_claims_before_nudge": 3,
         "min_interval_seconds": 90,
     },
+    "rapid_fire": {
+        "enabled": True,
+        "threshold": 10,
+        "window_seconds": 60,
+        "cooldown_seconds": 180,
+    },
+    "dominant_speaker": {
+        "enabled": True,
+        "threshold": 3,
+        "cooldown_seconds": 300,
+    },
+    "source_diversity": {
+        "enabled": True,
+        "threshold": 2,
+        "cooldown_seconds": 180,
+    },
+    "echo_chamber": {
+        "enabled": True,
+        "window_size": 6,
+        "cooldown_seconds": 180,
+        "agreement_ratio": 0.75,
+    },
+    "inclusivity": {
+        "enabled": True,
+        "window_size": 6,
+        "cooldown_seconds": 180,
+    },
+    "short_message": {
+        "enabled": True,
+        "min_length": 10,
+        "cooldown_seconds": 300,
+    },
+    "unanswered_question": {
+        "enabled": True,
+        "timeout_seconds": 60,
+        "cooldown_seconds": 600,
+    },
+    "link_context": {
+        "enabled": True,
+        "min_length": 30,
+        "cooldown_seconds": 60,
+    },
 }
 
 def get_activity_agent_settings(room):
@@ -362,13 +404,20 @@ def check_evidence_rule(room, post) -> bool:
 
 
 def check_dominant_speaker_rule(room, phase_index=None) -> bool:
-    # if the same user posts multiple messages in a row they get a nudge
-    posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')
-    if posts.count() < DOMINANT_SPEAKER_THRESHOLD:
+    cfg = get_agent_config(room, "dominant_speaker")
+    if not cfg.get("enabled", True):
         return False
 
-    recent_posts = list(posts[:DOMINANT_SPEAKER_THRESHOLD])
-    if len(recent_posts) < DOMINANT_SPEAKER_THRESHOLD:
+    threshold = int(cfg.get("threshold", DOMINANT_SPEAKER_THRESHOLD))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(DOMINANT_SPEAKER_COOLDOWN.total_seconds()))))
+
+    # if the same user posts multiple messages in a row they get a nudge
+    posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')
+    if posts.count() < threshold:
+        return False
+
+    recent_posts = list(posts[:threshold])
+    if len(recent_posts) < threshold:
         return False
 
     first_author = recent_posts[0].author
@@ -377,12 +426,12 @@ def check_dominant_speaker_rule(room, phase_index=None) -> bool:
 
     agent = _agent("Equity Agent", "Encourages balanced participation and underrepresented voices.")
     rule_name = f"dominant_speaker:user={first_author.id}"
-    cooldown_since = timezone.now() - DOMINANT_SPEAKER_COOLDOWN
+    cooldown_since = timezone.now() - cooldown
 
     if _recent(room, agent, rule_name, cooldown_since, phase_index, recipient=first_author):
         return False
 
-    explanation = f"{first_author.username} has posted {DOMINANT_SPEAKER_THRESHOLD} consecutive messages. Encouraging turn-taking."
+    explanation = f"{first_author.username} has posted {threshold} consecutive messages. Encouraging turn-taking."
     message = "Let's pause and hear from others before continuing — collaborative learning works best when everyone contributes!"
 
     _create(room, agent, rule_name, message, explanation, phase_index, recipient=first_author)
@@ -391,9 +440,15 @@ def check_dominant_speaker_rule(room, phase_index=None) -> bool:
 
 
 def check_unanswered_question_rule(room, phase_index=None) -> bool:
-    # find questions older than timeout with no reply and send reminder to reply
+    cfg = get_agent_config(room, "unanswered_question")
+    if not cfg.get("enabled", True):
+        return False
+
     now = timezone.now()
-    threshold_time = now - UNANSWERED_QUESTION_TIMEOUT
+    timeout = timedelta(seconds=int(cfg.get("timeout_seconds", int(UNANSWERED_QUESTION_TIMEOUT.total_seconds()))))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(UNANSWERED_QUESTION_COOLDOWN.total_seconds()))))
+
+    threshold_time = now - timeout
 
     question_posts = phase_posts(room, phase_index=phase_index).filter(
     content__contains='?',
@@ -401,7 +456,7 @@ def check_unanswered_question_rule(room, phase_index=None) -> bool:
     ).order_by('created_at')
 
     agent = _agent("Socratic Agent", "Encourages evidence-based reasoning and clearer support for claims.")
-    cooldown_since = now - UNANSWERED_QUESTION_COOLDOWN
+    cooldown_since = now - cooldown
     triggered = False
 
     for question_post in question_posts:
@@ -428,14 +483,21 @@ def check_unanswered_question_rule(room, phase_index=None) -> bool:
 
 
 def check_short_message_rule(room, post) -> bool:
+    cfg = get_agent_config(room, "short_message")
+    if not cfg.get("enabled", True):
+        return False
+
+    min_length = int(cfg.get("min_length", SHORT_MESSAGE_LENGTH))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(SHORT_MESSAGE_COOLDOWN.total_seconds()))))
+
     # send nudge if too short, maybe needs to be fixed
     content = (post.content or "").strip()
-    if len(content) >= SHORT_MESSAGE_LENGTH:
+    if len(content) >= min_length:
         return False
 
     agent = _agent("Facilitator Agent", "Encourages quieter members to participate.")
     rule_name = f"short_message:user={post.author.id}"
-    cooldown_since = timezone.now() - SHORT_MESSAGE_COOLDOWN
+    cooldown_since = timezone.now() - cooldown
 
     if _recent(room, agent, rule_name, cooldown_since, post.phase_index, recipient=post.author):
         return False
@@ -448,10 +510,17 @@ def check_short_message_rule(room, post) -> bool:
 
 
 def check_source_diversity_rule(room, phase_index=None) -> bool:
+    cfg = get_agent_config(room, "source_diversity")
+    if not cfg.get("enabled", True):
+        return False
+
+    threshold = int(cfg.get("threshold", DOMAIN_DIVERSITY_THRESHOLD))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(DOMAIN_DIVERSITY_COOLDOWN.total_seconds()))))
+
     agent = _agent("Evidence Agent", "Encourages using a variety of source locations to enrich discussions and remove potential bias.")
     rule_name = f"source_diversity_check"
 
-    cooldown_since = timezone.now() - DOMAIN_DIVERSITY_COOLDOWN
+    cooldown_since = timezone.now() - cooldown
     if _recent(room, agent, rule_name, cooldown_since, phase_index): #checks cooldown before going through any more logic
         return False
 
@@ -459,7 +528,7 @@ def check_source_diversity_rule(room, phase_index=None) -> bool:
         content__icontains="http"
     )
 
-    if posts_with_links.count() < DOMAIN_DIVERSITY_THRESHOLD: #checks if the amount of posts is less than the threshold
+    if posts_with_links.count() < threshold: #checks if the amount of posts is less than the threshold
         return False
     
     domain_counts = {}
@@ -478,7 +547,7 @@ def check_source_diversity_rule(room, phase_index=None) -> bool:
 
     overused_domains = [] #create a list to handle two or more overused domains although this is unlikely
     for domain, count in domain_counts.items():
-        if count >= DOMAIN_DIVERSITY_THRESHOLD:
+        if count >= threshold:
             overused_domains.append(domain)
     
     if not overused_domains:
@@ -489,7 +558,7 @@ def check_source_diversity_rule(room, phase_index=None) -> bool:
     else:
         domains_text = ", ".join(f"'{d}'" for d in overused_domains[:-1]) + f", and '{overused_domains[-1]}'"
     
-    explanation = f"The domain(s) {domains_text} have been cited {DOMAIN_DIVERSITY_THRESHOLD} or more times in this phase, which may limit the diversity of perspectives."
+    explanation = f"The domain(s) {domains_text} have been cited {threshold} or more times in this phase, which may limit the diversity of perspectives."
     message = f"Let's try to include sources from a wider variety of places to enrich our discussion and get different perspectives!"
 
     _create(room, agent, rule_name, message, explanation, phase_index)
@@ -497,16 +566,24 @@ def check_source_diversity_rule(room, phase_index=None) -> bool:
 
 
 def check_echo_chamber_rule(room, phase_index=None) -> bool:
+    cfg = get_agent_config(room, "echo_chamber")
+    if not cfg.get("enabled", True):
+        return False
+
+    window_size = int(cfg.get("window_size", DEBATE_WINDOW_SIZE))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(DEBATE_COOLDOWN.total_seconds()))))
+    agreement_ratio = float(cfg.get("agreement_ratio", 0.75))
+
     agent = _agent("Socratic Agent", "Encourages learners to challange each others ideas.")
     rule_name = "check_echo_chamber"
 
-    cooldown_since = timezone.now() - DEBATE_COOLDOWN
+    cooldown_since = timezone.now() - cooldown
     if _recent(room, agent, rule_name, cooldown_since, phase_index): #checks cooldown before going through any more logic
         return False
 
-    recent_posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')[:DEBATE_WINDOW_SIZE]
+    recent_posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')[:window_size]
 
-    if recent_posts.count() < DEBATE_WINDOW_SIZE: #checks if there are enough posts to check the rule
+    if recent_posts.count() < window_size: #checks if there are enough posts to check the rule
         return False
     
     posts_text = [p.content.lower() for p in recent_posts] #makes the list of posts all lower case for easier checks against keywords
@@ -518,10 +595,10 @@ def check_echo_chamber_rule(room, phase_index=None) -> bool:
         return False
     
     agreement_count = sum(any(k in text for k in AGREEMENT_KEYWORDS) for text in posts_text) #counts how many of the posts have agreement keywords
-    if agreement_count < (DEBATE_WINDOW_SIZE * 0.75): #if theres not a strong agreement then its likely there isnt an echo chamber
+    if agreement_count < (window_size * agreement_ratio): #if theres not a strong agreement then its likely there isnt an echo chamber
         return False
     
-    explanation = f"The last {DEBATE_WINDOW_SIZE} messages contain high agreement levels, indicating an echo chamber."
+    explanation = f"The last {window_size} messages contain high agreement levels, indicating an echo chamber."
     message = f"There seems to be a lot of agreement here! Lets try to test your ideas, what might be on the other side of this argument?"
     
     _create(room, agent, rule_name, message, explanation, phase_index)
@@ -529,22 +606,30 @@ def check_echo_chamber_rule(room, phase_index=None) -> bool:
 
 
 def check_rapid_fire_rule(room, phase_index=None) -> bool:
+    cfg = get_agent_config(room, "rapid_fire")
+    if not cfg.get("enabled", True):
+        return False
+
+    threshold = int(cfg.get("threshold", RAPID_FIRE_THRESHOLD))
+    window = timedelta(seconds=int(cfg.get("window_seconds", int(RAPID_FIRE_WINDOW.total_seconds()))))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(RAPID_FIRE_COOLDOWN.total_seconds()))))
+
     agent = _agent("Facilitator Agent", "Maintains a steady pace and encourages deeper thinking.")
     rule_name = "check_rapid_fire"
 
-    cooldown_since = timezone.now() - RAPID_FIRE_COOLDOWN
+    cooldown_since = timezone.now() - cooldown
     if _recent(room, agent, rule_name, cooldown_since, phase_index):
         return False
 
-    window_start = timezone.now() - RAPID_FIRE_WINDOW
+    window_start = timezone.now() - window
     recent_count = phase_posts(room, phase_index=phase_index).filter(
         created_at__gte=window_start
     ).count()
 
-    if recent_count < RAPID_FIRE_THRESHOLD:
+    if recent_count < threshold:
         return False
     
-    explanation = f"Group posted {recent_count} messages in the last {RAPID_FIRE_WINDOW.seconds // 60} minutes, this may indicate a rapid pace hindering deeper thinking."
+    explanation = f"Group posted {recent_count} messages in the last {window.seconds // 60} minutes, this may indicate a rapid pace hindering deeper thinking."
     message = f"Let's slow down a bit to give everyone time to reflect and engage more deeply with the discussion!"
     
     _create(room, agent, rule_name, message, explanation, phase_index)
@@ -552,16 +637,23 @@ def check_rapid_fire_rule(room, phase_index=None) -> bool:
 
 
 def check_inclusivity_rule(room, phase_index=None) -> bool:
+    cfg = get_agent_config(room, "inclusivity")
+    if not cfg.get("enabled", True):
+        return False
+
+    window_size = int(cfg.get("window_size", TURN_TAKING_WINDOW))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(TURN_TAKING_COOLDOWN.total_seconds()))))
+
     agent = _agent("Equity Agent", "Encourages balanced participation and prevents dominant sub groups forming")
     rule_name = "check_inclusivity"
 
-    cooldown_since = timezone.now() - TURN_TAKING_COOLDOWN
+    cooldown_since = timezone.now() - cooldown
     if _recent(room, agent, rule_name, cooldown_since, phase_index):
         return False
-    
-    recent_posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')[:TURN_TAKING_WINDOW]
 
-    if recent_posts.count() < TURN_TAKING_WINDOW:
+    recent_posts = phase_posts(room, phase_index=phase_index).order_by('-created_at')[:window_size]
+
+    if recent_posts.count() < window_size:
         return False
     
     authors = set(p.author for p in recent_posts)
@@ -581,20 +673,26 @@ def check_inclusivity_rule(room, phase_index=None) -> bool:
     else:
         invite_text = f"what do {', '.join(quiet_names[:-1])} and {quiet_names[-1]} think about this?"
     
-    explanation = f"The last {TURN_TAKING_WINDOW} posts were only between {list(authors)[0]} and {list(authors)[1]}."
-    message = f"This is a great conversation between the two of you, lets get everyone involed, {invite_text}"
-
+    explanation = f"The last {window_size} posts were only between {list(authors)[0]} and {list(authors)[1]}."
+    message = f"This is a great conversation between the two of you, lets get everyone involved, {invite_text}"
     _create(room, agent, rule_name, message, explanation, phase_index)
     return True
 
 
 def check_source_context_rule(room, post) -> bool:
+    cfg = get_agent_config(room, "link_context")
+    if not cfg.get("enabled", True):
+        return False
+
+    min_length = int(cfg.get("min_length", LINK_CONTECT_MIN_LENGTH))
+    cooldown = timedelta(seconds=int(cfg.get("cooldown_seconds", int(LINK_CONTEXT_COOLDOWN.total_seconds()))))
+
     agent = _agent("Evidence Agent", "Encourages leaners to give context when sharing linke to help others evaluate the source")
     rule_name = f"source_context"
 
-    cool_down_since = timezone.now() - LINK_CONTEXT_COOLDOWN
-    if _recent(room, agent, rule_name, cool_down_since, post.phase_index,recipient=post.author):
-          return False
+    cool_down_since = timezone.now() - cooldown
+    if _recent(room, agent, rule_name, cool_down_since, post.phase_index, recipient=post.author):
+        return False
     
     content = (post.content or "").strip() #defines content as an empty string incase somehow an empty message was sent
     urls = re.findall(r'https?[^\s]+', content)
@@ -605,13 +703,13 @@ def check_source_context_rule(room, post) -> bool:
         content = content.replace(url, "")
 
     content = content.strip() #second strip to ensure no spaces left after removing the urls remain
-    if len(content) >= LINK_CONTECT_MIN_LENGTH:
+    if len(content) >= min_length:
         return False
     
-    explanation = f"User provided a link but only {len(content)} characters of context, threshold is {LINK_CONTECT_MIN_LENGTH}"
+    explanation = f"User provided a link but only {len(content)} characters of context, threshold is {min_length}"
     message = f"Thanks for sharing the link, to help the group could you please add a bit more context to the source."
 
-    _create(room, agent, rule_name, message, explanation, post.phase_index, recipient=post.author  )
+    _create(room, agent, rule_name, message, explanation, post.phase_index, recipient=post.author)
     return True
 
 

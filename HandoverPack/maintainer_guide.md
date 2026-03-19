@@ -243,19 +243,43 @@ if check_low_engagement_rule(room, phase_index=phase_index):
 | `phase_posts(room, phase_index)` | Returns a queryset of posts for the current activity run and phase. Always use this rather than `Post.objects.filter()` directly. |
 | `get_agent_config(room, key)` | Returns the merged agent settings for a given key (e.g. `"inactivity"`, `"equity"`, `"evidence"`), respecting any per-activity overrides. |
 
-### 4.4 Adjusting Thresholds
+### 4.4 Configuring Agent Thresholds
 
-Thresholds and cooldowns are defined as constants at the top of `agents.py`. For example:
+Agent thresholds (e.g., when to trigger inactivity warnings or rapid-fire messages) are now **configurable per-activity** via the `agent_settings` field, rather than hard-coded constants. This allows facilitators to customize behavior without code changes.
 
-```python
-RAPID_FIRE_THRESHOLD = 10           # number of messages
-RAPID_FIRE_WINDOW = timedelta(seconds=60)
-RAPID_FIRE_COOLDOWN = timedelta(minutes=3)
-```
+#### How to Configure Thresholds
 
-To change a threshold, edit the relevant constant. No database changes are required, changes take effect immediately on the next rule check.
+1. **Via Facilitator UI (Recommended)**:
+   - Log in as a facilitator
+   - Navigate to **Facilitator activity tools**
+   - Edit an existing activity or create a new one
+   - Scroll to the **Agent settings** section
+   - Adjust thresholds for each agent (e.g., rapid-fire message count, inactivity timeout)
+   - Save the activity
 
-Some thresholds can also be overridden per-activity via the `agent_settings` field on the Activity model. The `DEFAULT_AGENT_SETTINGS` dictionary at the top of `agents.py` defines the fallback values for configurable rules (`equity`, `inactivity`, `evidence`).
+2. **Via Direct Database Edit (Advanced)**:
+   - Access the Django admin or database directly
+   - Edit the `agent_settings` JSON field on the Activity model
+   - Use the structure from `DEFAULT_AGENT_SETTINGS` in `agent_rules.py` as a reference
+
+#### Available Configurable Thresholds
+
+- **Equity**: `participation_gap`, `minimum_phase_posts`, `cooldown_seconds`
+- **Inactivity**: `idle_seconds`, `cooldown_seconds`, `join_grace_seconds`
+- **Evidence**: `unsupported_claims_before_nudge`, `min_interval_seconds`
+- **Rapid Fire**: `threshold` (messages), `window_seconds`, `cooldown_seconds`
+- **Dominant Speaker**: `threshold` (consecutive messages), `cooldown_seconds`
+- **Source Diversity**: `threshold` (repeated domains), `cooldown_seconds`
+- **Echo Chamber**: `window_size`, `agreement_ratio`, `cooldown_seconds`
+- **Inclusivity**: `window_size`, `cooldown_seconds`
+- **Short Message**: `min_length`, `cooldown_seconds`
+- **Unanswered Question**: `timeout_seconds`, `cooldown_seconds`
+- **Link Context**: `min_length`, `cooldown_seconds`
+
+If a threshold is not specified in `agent_settings`, the system uses defaults from `DEFAULT_AGENT_SETTINGS` in `agent_rules.py`.
+
+Changes take effect immediately for new activity runs — no server restart required.
+
 
 ---
 

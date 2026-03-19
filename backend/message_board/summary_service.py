@@ -256,6 +256,7 @@ def _extract_content(posts, phases):
     decisions = []
     action_items = []
     unanswered_questions = []
+    proposals = []
 
     # Build phase name mapping
     phase_names = {idx: p.get("name", f"Phase {idx}") for idx, p in enumerate(phases)}
@@ -267,6 +268,15 @@ def _extract_content(posts, phases):
         content = post.content
         phase_name = phase_names.get(post.phase_index, "Unknown")
         author_name = post.author.first_name or post.author.username
+
+        # Check for proposals (in "propose" phase)
+        if phase_name.lower() == "propose":
+            proposals.append({
+                "content": content,
+                "author": author_name,
+                "phase": phase_name,
+                "timestamp": post.created_at.isoformat()
+            })
 
         # Check for decisions (especially valuable in "decide" phase)
         for pattern in DECISION_INDICATORS:
@@ -341,5 +351,6 @@ def _extract_content(posts, phases):
         "decisions": decisions,
         "action_items": action_items,
         "unanswered_questions": unanswered_questions,
+        "proposals": proposals,
         "final_outcome": final_outcome
     }
