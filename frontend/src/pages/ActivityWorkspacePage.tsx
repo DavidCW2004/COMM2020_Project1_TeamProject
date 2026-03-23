@@ -98,10 +98,12 @@ export default function ActivityWorkspacePage() {
     >(null);
     const [showWhy, setShowWhy] = useState(false);
 
-    // NEW: scroll handling
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const shouldAutoScrollRef = useRef(true);
+
+    const finalAnswerPollRef = useRef<number | null>(null);
+
 
     useEffect(() => {
         const el = scrollRef.current;
@@ -233,7 +235,7 @@ export default function ActivityWorkspacePage() {
         };
     }, [code]);
 
-        //countdown tick
+    //countdown tick
     useEffect(() => {
         if (!activity?.phase_ends_at || activity?.is_paused) {
             return;
@@ -248,10 +250,33 @@ export default function ActivityWorkspacePage() {
 
     // Load final answer options after finish
     useEffect(() => {
-        if (!activity?.finished || !activity.activity_run_id) return;
-        void fetchFinalAnswer(activity.activity_run_id);
-    }, [activity?.finished, activity?.activity_run_id]);
+        if (!activity?.finished || !activity.activity_run_id) {
+            if (finalAnswerPollRef.current) {
+                window.clearInterval(finalAnswerPollRef.current);
+                finalAnswerPollRef.current = null;
+            }
+            return;
+        }
 
+        void fetchFinalAnswer(activity.activity_run_id);
+
+        if (finalAnswerPollRef.current) {
+            window.clearInterval(finalAnswerPollRef.current);
+        }
+
+        finalAnswerPollRef.current = window.setInterval(() => {
+            fetchFinalAnswer(activity.activity_run_id!).catch((e) => {
+                setFinalAnswerError(e.message ?? "Failed to poll final answer");
+            });
+        }, 1500);
+
+        return () => {
+            if (finalAnswerPollRef.current) {
+                window.clearInterval(finalAnswerPollRef.current);
+                finalAnswerPollRef.current = null;
+            }
+        };
+    }, [activity?.finished, activity?.activity_run_id]);
     async function sendMessage() {
         if (!code) return;
         if (activity?.is_paused) return;

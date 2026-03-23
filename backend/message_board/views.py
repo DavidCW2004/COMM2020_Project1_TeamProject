@@ -9,6 +9,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count
 from django.contrib.auth.hashers import make_password, check_password
+from django.db import transaction
 
 from .models import (
     Post,
@@ -759,8 +760,6 @@ def final_answer(request, code):
     if not activity_run_id:
         return JsonResponse({"detail": "No activity run found"}, status=404)
 
-    final_existing = _get_final_answer(room, activity_run_id)
-
     state = get_activity_state(room)
     if str(activity_run_id) == str(room.activity_run_id) and not state.get("finished", False):
         return JsonResponse({"detail": "Activity not yet finished"}, status=400)
@@ -770,59 +769,10 @@ def final_answer(request, code):
         return JsonResponse({"detail": "No decide phase configured"}, status=400)
 
     if request.method == "GET":
-        eligible_posts = Post.objects.filter(
-            room=room,
-            activity_run_id=activity_run_id,
-            phase_index=decide_phase_index
-        ).select_related("author").order_by("created_at")
-
-        if not eligible_posts.exists():
-            eligible_posts = Post.objects.filter(
-                room=room,
-                activity_run_id=activity_run_id,
-                phase_index=max(0, decide_phase_index - 1)
-            ).select_related("author").order_by("created_at")
-            
-        votes = (
-            FinalAnswerVote.objects.filter(room=room, activity_run_id=activity_run_id)
-            .values("post")
-            .annotate(count=Count("id"))
-        )
-        vote_map = {v["post"]: v["count"] for v in votes}
-
-        user_vote = FinalAnswerVote.objects.filter(
-            room=room, activity_run_id=activity_run_id, user=request.user
-        ).first()
-
-        data = []
-        for post in eligible_posts:
-            data.append(
-                {
-                    "id": post.id,
-                    "content": post.content,
-                    "author": post.author.first_name or post.author.username,
-                    "created_at": post.created_at.isoformat(),
-                    "votes": vote_map.get(post.id, 0),
-                    "is_final": bool(final_existing and final_existing.post_id == post.id),
-                }
-            )
-
-        return JsonResponse(
-            {
-                "room_code": room.code,
-                "activity_run_id": str(activity_run_id),
-                "majority_needed": _get_majority_count(room),
-                "final_answer_post_id": final_existing.post_id if final_existing else None,
-                "user_vote_post_id": user_vote.post_id if user_vote else None,
-                "posts": data,
-            }
-        )
+        return JsonResponse(_build_final_answer_response(room, activity_run_id, request.user))
 
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
-
-    if final_existing:
-        return JsonResponse({"detail": "Final answer already finalized"}, status=400)
 
     try:
         payload = json.loads(request.body or "{}")
@@ -837,33 +787,39 @@ def final_answer(request, code):
     if not post_id:
         return JsonResponse({"detail": "post_id is required"}, status=400)
 
-    try:
-        post = Post.objects.select_related("author").get(
-            id=post_id, room=room, activity_run_id=activity_run_id, phase_index=decide_phase_index
-        )
-    except Post.DoesNotExist:
+    final_existing = _get_final_answer(room, activity_run_id)
+    if final_existing:
+        return JsonResponse({"detail": "Final answer already finalized"}, status=400)
+
+    eligible_posts = _get_eligible_final_answer_posts(room, activity_run_id, decide_phase_index)
+    post = eligible_posts.filter(id=post_id).first()
+    if not post:
         return JsonResponse({"detail": "Post not found"}, status=404)
 
-    FinalAnswerVote.objects.filter(room=room, activity_run_id=activity_run_id, user=request.user).delete()
+    with transaction.atomic():
+        FinalAnswerVote.objects.update_or_create(
+            room=room,
+            activity_run_id=activity_run_id,
+            user=request.user,
+            defaults={"post": post},
+        )
 
-    FinalAnswerVote.objects.create(room=room, activity_run_id=activity_run_id, post=post, user=request.user)
+        votes_count = FinalAnswerVote.objects.filter(
+            room=room,
+            activity_run_id=activity_run_id,
+            post=post,
+        ).count()
 
-    votes_count = FinalAnswerVote.objects.filter(room=room, activity_run_id=activity_run_id, post=post).count()
-    majority_needed = _get_majority_count(room)
+        majority_needed = _get_majority_count(room)
 
-    if votes_count >= majority_needed:
-        FinalAnswerSelection.objects.get_or_create(room=room, activity_run_id=activity_run_id, defaults={"post": post})
+        if votes_count >= majority_needed:
+            FinalAnswerSelection.objects.get_or_create(
+                room=room,
+                activity_run_id=activity_run_id,
+                defaults={"post": post},
+            )
 
-    return JsonResponse(
-        {
-            "id": post.id,
-            "content": post.content,
-            "author": post.author.first_name or post.author.username,
-            "created_at": post.created_at.isoformat(),
-            "votes": votes_count,
-            "majority_needed": majority_needed,
-        }
-    )
+    return JsonResponse(_build_final_answer_response(room, activity_run_id, request.user), status=200)
     
 @csrf_exempt
 def control_activity(request, code):
@@ -958,3 +914,61 @@ def control_activity(request, code):
 
     new_state = get_activity_state(room)
     return JsonResponse({"detail": "OK", "state": new_state})
+
+def _get_eligible_final_answer_posts(room, activity_run_id, decide_phase_index):
+    eligible_posts = Post.objects.filter(
+        room=room,
+        activity_run_id=activity_run_id,
+        phase_index=decide_phase_index,
+    ).select_related("author").order_by("created_at")
+
+    if not eligible_posts.exists():
+        eligible_posts = Post.objects.filter(
+            room=room,
+            activity_run_id=activity_run_id,
+            phase_index=max(0, decide_phase_index - 1),
+        ).select_related("author").order_by("created_at")
+
+    return eligible_posts
+
+
+def _build_final_answer_response(room, activity_run_id, request_user):
+    final_existing = _get_final_answer(room, activity_run_id)
+    decide_phase_index = _get_decide_phase_index(room)
+
+    eligible_posts = _get_eligible_final_answer_posts(room, activity_run_id, decide_phase_index)
+
+    votes = (
+        FinalAnswerVote.objects.filter(room=room, activity_run_id=activity_run_id)
+        .values("post")
+        .annotate(count=Count("id"))
+    )
+    vote_map = {v["post"]: v["count"] for v in votes}
+
+    user_vote = FinalAnswerVote.objects.filter(
+        room=room,
+        activity_run_id=activity_run_id,
+        user=request_user,
+    ).first()
+
+    data = []
+    for post in eligible_posts:
+        data.append(
+            {
+                "id": post.id,
+                "content": post.content,
+                "author": post.author.first_name or post.author.username,
+                "created_at": post.created_at.isoformat(),
+                "votes": vote_map.get(post.id, 0),
+                "is_final": bool(final_existing and final_existing.post_id == post.id),
+            }
+        )
+
+    return {
+        "room_code": room.code,
+        "activity_run_id": str(activity_run_id),
+        "majority_needed": _get_majority_count(room),
+        "final_answer_post_id": final_existing.post_id if final_existing else None,
+        "user_vote_post_id": user_vote.post_id if user_vote else None,
+        "posts": data,
+    }
