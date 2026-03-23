@@ -172,6 +172,8 @@ export default function RoomDashboardPage() {
         try {
             await navigator.clipboard.writeText(code);
             toast.success("Room code copied", { description: `Code: ${code}` });
+            setCopiedCode(true);
+            window.setTimeout(() => setCopiedCode(false), 2000);
         } catch {
             toast.error("Could not copy room code");
         }
