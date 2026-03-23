@@ -98,10 +98,12 @@ export default function ActivityWorkspacePage() {
     >(null);
     const [showWhy, setShowWhy] = useState(false);
 
-    // NEW: scroll handling
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const shouldAutoScrollRef = useRef(true);
+
+    const finalAnswerPollRef = useRef<number | null>(null);
+
 
     useEffect(() => {
         const el = scrollRef.current;
@@ -166,11 +168,15 @@ export default function ActivityWorkspacePage() {
         setTimer(data.activity.is_paused ? null : secondsLeft(data.activity.phase_ends_at));
     }
 
-    async function fetchFinalAnswer(activityRunId?: string | null) {
+    async function fetchFinalAnswer(activityRunId?: string | null, options?: { silent?: boolean }) {
         if (!code || !activityRunId) return;
 
+        const silent = options?.silent ?? false;
+
         try {
-            setFinalAnswerLoading(true);
+            if (!silent) {
+                setFinalAnswerLoading(true);
+            }
             setFinalAnswerError(null);
 
             const params = new URLSearchParams({ activity_run_id: activityRunId });
@@ -189,7 +195,9 @@ export default function ActivityWorkspacePage() {
         } catch (e: any) {
             setFinalAnswerError(e.message ?? "Failed to load final answer options");
         } finally {
-            setFinalAnswerLoading(false);
+            if (!silent) {
+                setFinalAnswerLoading(false);
+            }
         }
     }
 
@@ -233,7 +241,7 @@ export default function ActivityWorkspacePage() {
         };
     }, [code]);
 
-        //countdown tick
+    //countdown tick
     useEffect(() => {
         if (!activity?.phase_ends_at || activity?.is_paused) {
             return;
@@ -248,10 +256,33 @@ export default function ActivityWorkspacePage() {
 
     // Load final answer options after finish
     useEffect(() => {
-        if (!activity?.finished || !activity.activity_run_id) return;
-        void fetchFinalAnswer(activity.activity_run_id);
-    }, [activity?.finished, activity?.activity_run_id]);
+        if (!activity?.finished || !activity.activity_run_id) {
+            if (finalAnswerPollRef.current) {
+                window.clearInterval(finalAnswerPollRef.current);
+                finalAnswerPollRef.current = null;
+            }
+            return;
+        }
 
+        void fetchFinalAnswer(activity.activity_run_id);
+
+        if (finalAnswerPollRef.current) {
+            window.clearInterval(finalAnswerPollRef.current);
+        }
+
+        finalAnswerPollRef.current = window.setInterval(() => {
+            fetchFinalAnswer(activity.activity_run_id!, { silent: true }).catch((e) => {
+                setFinalAnswerError(e.message ?? "Failed to poll final answer");
+            });
+        }, 1500);
+
+        return () => {
+            if (finalAnswerPollRef.current) {
+                window.clearInterval(finalAnswerPollRef.current);
+                finalAnswerPollRef.current = null;
+            }
+        };
+    }, [activity?.finished, activity?.activity_run_id]);
     async function sendMessage() {
         if (!code) return;
         if (activity?.is_paused) return;
@@ -437,7 +468,7 @@ export default function ActivityWorkspacePage() {
                                     </div>
                                 )}
 
-                                {finalAnswerLoading && (
+                                {finalAnswerLoading && !finalAnswer && (
                                     <div className="text-sm text-muted-foreground">Loading options…</div>
                                 )}
 
@@ -478,7 +509,7 @@ export default function ActivityWorkspacePage() {
                                                                 {isUserVote ? "Voted" : "Vote"}
                                                             </Button>
                                                         ) : (
-                                                            <span className="text-xs font-semibold text-emerald-700">Finalized</span>
+                                                            <span className="text-xs font-semibold text-emerald-700">Finalised</span>
                                                         )}
                                                     </div>
                                                 </div>

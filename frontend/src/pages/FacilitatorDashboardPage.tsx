@@ -13,22 +13,38 @@ export default function FacilitatorDashboardPage() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
-    async function load() {
-        setLoading(true);
-        setError(null);
+    async function load(options?: { silent?: boolean }) {
+        const silent = options?.silent ?? false;
+
+        if (!silent) {
+            setLoading(true);
+        }
+
         try {
             const data = await fetchFacilitatorDashboardStats();
-            setRooms(data.rooms ?? []);
+
+            setRooms((prev) => {
+                const next = data.rooms ?? [];
+                return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+            });
+
+            setError(null);
         } catch (e) {
             setError(e instanceof Error ? e.message : "Failed to load dashboard");
         } finally {
-            setLoading(false);
+            if (!silent) {
+                setLoading(false);
+            }
         }
     }
 
     useEffect(() => {
         void load();
-        const id = window.setInterval(() => void load(), 5000);
+
+        const id = window.setInterval(() => {
+            void load({ silent: true });
+        }, 5000);
+
         return () => window.clearInterval(id);
     }, []);
 
