@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 type ActivityState = {
     is_running: boolean;
     finished: boolean;
+    is_paused?: boolean;
     activity_id: number | null;
     activity_name: string | null;
     phase_index?: number | null;
@@ -162,7 +163,7 @@ export default function ActivityWorkspacePage() {
             setPhaseIndex(data.phase_index ?? null);
         }
 
-        setTimer(secondsLeft(data.activity.phase_ends_at));
+        setTimer(data.activity.is_paused ? null : secondsLeft(data.activity.phase_ends_at));
     }
 
     async function fetchFinalAnswer(activityRunId?: string | null) {
@@ -232,16 +233,18 @@ export default function ActivityWorkspacePage() {
         };
     }, [code]);
 
-    // Countdown tick
+        //countdown tick
     useEffect(() => {
-        if (!activity?.phase_ends_at) return;
+        if (!activity?.phase_ends_at || activity?.is_paused) {
+            return;
+        }
 
         const id = window.setInterval(() => {
             setTimer(secondsLeft(activity.phase_ends_at));
         }, 1000);
 
         return () => window.clearInterval(id);
-    }, [activity?.phase_ends_at]);
+    }, [activity?.phase_ends_at, activity?.is_paused]);
 
     // Load final answer options after finish
     useEffect(() => {
@@ -251,6 +254,7 @@ export default function ActivityWorkspacePage() {
 
     async function sendMessage() {
         if (!code) return;
+        if (activity?.is_paused) return;
         const content = input.trim();
         if (!content) return;
 
@@ -323,11 +327,16 @@ export default function ActivityWorkspacePage() {
                             <p className="mt-1 text-sm text-muted-foreground">
                                 Room: <span className="font-medium text-foreground">{code ?? ""}</span>{" "}
                                 • Phase: <span className="font-medium text-foreground">{phaseLabel}</span>
-                                {timer !== null && !activity?.finished && (
+
+                                {activity?.is_paused ? (
+                                    <span className="ml-2 text-xs rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-amber-800">
+                                        Paused
+                                    </span>
+                                ) : timer !== null && !activity?.finished ? (
                                     <span className="ml-2 text-xs rounded-full border border-border bg-muted/40 px-2 py-0.5">
                                         {timer}s left
                                     </span>
-                                )}
+                                ) : null}
                             </p>
                         </div>
 
@@ -379,6 +388,11 @@ export default function ActivityWorkspacePage() {
                     </div>
 
                     <div ref={scrollRef} className="flex-1 overflow-auto px-6 py-4 space-y-4">
+                        {activity?.is_paused && (
+                            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                This activity is currently paused by the facilitator.
+                            </div>
+                        )}
                         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
 
                         {error && (
@@ -491,12 +505,15 @@ export default function ActivityWorkspacePage() {
                                 <Input
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
-                                    placeholder="Write a message…"
+                                    placeholder={activity?.is_paused ? "Activity is paused…" : "Write a message…"}
+                                    disabled={activity?.is_paused}
                                     onKeyDown={(e) => {
-                                        if (e.key === "Enter") sendMessage();
+                                        if (e.key === "Enter" && !activity?.is_paused) sendMessage();
                                     }}
                                 />
-                                <Button onClick={sendMessage}>Send</Button>
+                                <Button onClick={sendMessage} disabled={activity?.is_paused}>
+                                    Send
+                                </Button>
                             </div>
                         )}
                     </div>

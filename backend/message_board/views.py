@@ -182,7 +182,7 @@ def messages(request):
             phase_index = int(phase_param)
         except ValueError:
             return JsonResponse({"detail": "phase must be an integer"}, status=400)
-    elif state.get("is_running") and not state.get("finished", False):
+    elif (state.get("is_running") or state.get("is_paused")) and not state.get("finished", False):
         phase_index = state.get("phase_index")
     else:
         phase_index = None
@@ -241,6 +241,7 @@ def messages(request):
                 "activity": {
                     "is_running": state.get("is_running", False),
                     "finished": state.get("finished", False),
+                    "is_paused": state.get("is_paused", False),
                     "activity_id": state.get("activity_id"),
                     "activity_name": state.get("activity_name"),
                     "activity_run_id": str(room.activity_run_id) if room.activity_run_id else None,
@@ -258,6 +259,9 @@ def messages(request):
 
     if not request.user.is_authenticated:
         return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if state.get("is_paused", False):
+        return JsonResponse({"detail": "Activity is paused"}, status=403)
 
     try:
         payload = json.loads(request.body or "{}")
@@ -327,7 +331,13 @@ def room_detail(request, code):
                 else None
             ),
             "is_private": room.is_private,
-            "created_by": (room.created_by.first_name or room.created_by.username) if room.created_by else None,
+            "created_by": (
+                {
+                    "id": room.created_by.id,
+                    "name": room.created_by.first_name or room.created_by.username,
+                }
+                if room.created_by else None
+            ),
             "activity": {
                 "is_running": state.get("is_running", False),
                 "finished": state.get("finished", False),
@@ -338,6 +348,8 @@ def room_detail(request, code):
                 "phase_prompt": state.get("phase_prompt"),
                 "phase_ends_at": state.get("phase_ends_at"),
                 "total_phases": state.get("total_phases"),
+                "is_paused": state.get("is_paused", False),
+                "phase_override_active": state.get("phase_override_active", False),
             },
         },
         status=200,
@@ -365,7 +377,12 @@ def start_activity(request, code):
     room.activity_is_running = True
     room.activity_started_at = timezone.now()
     room.activity_run_id = uuid.uuid4()
-    room.save(update_fields=["activity_is_running", "activity_started_at", "activity_run_id"])
+    room.phase_override_index = None  
+    room.activity_paused_at = None
+    room.save(update_fields=[
+        "activity_is_running", "activity_started_at", 
+        "activity_run_id", "phase_override_index", "activity_paused_at"
+    ])
 
     return JsonResponse(
         {
@@ -421,11 +438,7 @@ def select_activity(request, code):
 def get_activity_state(room):
     activity = getattr(room, "selected_activity", None)
 
-    if (
-        not activity
-        or not getattr(room, "activity_is_running", False)
-        or not getattr(room, "activity_started_at", None)
-    ):
+    if not activity or not getattr(room, "activity_started_at", None):
         return {
             "is_running": False,
             "finished": False,
@@ -436,6 +449,8 @@ def get_activity_state(room):
             "phase_prompt": None,
             "phase_ends_at": None,
             "total_phases": len(activity.phases or []) if activity else 0,
+            "is_paused": False,
+            "phase_override_active": False,
         }
 
     phases = activity.phases or []
@@ -452,29 +467,68 @@ def get_activity_state(room):
             "phase_prompt": None,
             "phase_ends_at": None,
             "total_phases": 0,
+            "is_paused": False,
+            "phase_override_active": False,
         }
 
-    now = timezone.now()
-    elapsed = (now - room.activity_started_at).total_seconds()
+    is_paused = bool(room.activity_paused_at)
+    override_index = room.phase_override_index
+
+    if override_index is not None and override_index >= total_phases:
+        return {
+            "is_running": False,
+            "finished": True,
+            "activity_id": activity.id,
+            "activity_name": activity.name,
+            "phase_index": total_phases - 1,
+            "phase_name": phases[-1].get("name"),
+            "phase_prompt": phases[-1].get("prompt"),
+            "phase_ends_at": None,
+            "total_phases": total_phases,
+            "is_paused": False,
+            "phase_override_active": False,
+        }
+
+    if not room.activity_is_running and not is_paused:
+        return {
+            "is_running": False,
+            "finished": False,
+            "activity_id": activity.id,
+            "activity_name": activity.name,
+            "phase_index": None,
+            "phase_name": None,
+            "phase_prompt": None,
+            "phase_ends_at": None,
+            "total_phases": total_phases,
+            "is_paused": False,
+            "phase_override_active": False,
+        }
+
+    reference_time = room.activity_paused_at if is_paused else timezone.now()
+    elapsed = max(0, (reference_time - room.activity_started_at).total_seconds())
 
     cumulative = 0
     for idx, ph in enumerate(phases):
         duration_minutes = float(ph.get("time_limit_minutes") or 0)
         duration = int(duration_minutes * 60) or 60
-
         phase_end = cumulative + duration
-        if elapsed < phase_end:
+
+        is_this_phase = (idx == override_index) if override_index is not None else (elapsed < phase_end)
+
+        if is_this_phase:
             phase_ends_at = room.activity_started_at + timedelta(seconds=phase_end)
             return {
-                "is_running": True,
+                "is_running": not is_paused,
                 "finished": False,
                 "activity_id": activity.id,
                 "activity_name": activity.name,
                 "phase_index": idx,
                 "phase_name": ph.get("name"),
                 "phase_prompt": ph.get("prompt"),
-                "phase_ends_at": phase_ends_at.isoformat(),
+                "phase_ends_at": None if is_paused else phase_ends_at.isoformat(),
                 "total_phases": total_phases,
+                "is_paused": is_paused,
+                "phase_override_active": override_index is not None,
             }
 
         cumulative = phase_end
@@ -490,8 +544,9 @@ def get_activity_state(room):
         "phase_prompt": phases[-1].get("prompt"),
         "phase_ends_at": finished_at.isoformat(),
         "total_phases": total_phases,
+        "is_paused": False,
+        "phase_override_active": False,
     }
-
 
 @csrf_exempt
 def session_summary(request, code):
@@ -706,12 +761,19 @@ def final_answer(request, code):
         return JsonResponse({"detail": "No decide phase configured"}, status=400)
 
     if request.method == "GET":
-        eligible_posts = (
-            Post.objects.filter(room=room, activity_run_id=activity_run_id, phase_index=decide_phase_index)
-            .select_related("author")
-            .order_by("created_at")
-        )
+        eligible_posts = Post.objects.filter(
+            room=room,
+            activity_run_id=activity_run_id,
+            phase_index=decide_phase_index
+        ).select_related("author").order_by("created_at")
 
+        if not eligible_posts.exists():
+            eligible_posts = Post.objects.filter(
+                room=room,
+                activity_run_id=activity_run_id,
+                phase_index=max(0, decide_phase_index - 1)
+            ).select_related("author").order_by("created_at")
+            
         votes = (
             FinalAnswerVote.objects.filter(room=room, activity_run_id=activity_run_id)
             .values("post")
@@ -793,3 +855,97 @@ def final_answer(request, code):
             "majority_needed": majority_needed,
         }
     )
+    
+@csrf_exempt
+def control_activity(request, code):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "Authentication required"}, status=401)
+
+    if not _is_privileged(request.user):
+        return JsonResponse({"detail": "Facilitator access required"}, status=403)
+
+    code = (code or "").strip().upper()
+
+    try:
+        room = Room.objects.get(code=code)
+    except Room.DoesNotExist:
+        return JsonResponse({"detail": "Room not found"}, status=404)
+
+    if not room.activity_is_running and not room.activity_paused_at:
+        return JsonResponse({"detail": "No activity in progress"}, status=400)
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON"}, status=400)
+
+    action = (payload.get("action") or "").strip().lower()
+
+    if action == "pause":
+        if room.activity_paused_at:
+            return JsonResponse({"detail": "Already paused"}, status=400)
+
+        room.activity_paused_at = timezone.now()
+        room.save(update_fields=["activity_paused_at"])
+
+    elif action == "resume":
+        if not room.activity_paused_at:
+            return JsonResponse({"detail": "Not paused"}, status=400)
+
+        pause_duration = timezone.now() - room.activity_paused_at
+        room.activity_started_at += pause_duration
+        room.activity_paused_at = None
+        room.save(update_fields=["activity_started_at", "activity_paused_at"])
+
+    elif action == "advance":
+        current_state = get_activity_state(room)
+        current_index = current_state.get("phase_index") or 0
+        total = current_state.get("total_phases", 0)
+        next_index = current_index + 1
+
+        if next_index >= total:
+            room.phase_override_index = total
+            room.activity_is_running = False
+            room.activity_paused_at = None
+            room.save(update_fields=["phase_override_index", "activity_is_running", "activity_paused_at"])
+
+            final_state = get_activity_state(room)
+            return JsonResponse({
+                "detail": "Activity finished",
+                "finished": True,
+                "state": final_state,
+            })
+
+        room.phase_override_index = next_index
+        room.save(update_fields=["phase_override_index"])
+
+    elif action == "set_phase":
+        phase_index = payload.get("phase_index")
+        if phase_index is None:
+            return JsonResponse({"detail": "phase_index is required"}, status=400)
+
+        activity = room.selected_activity
+        total = len(activity.phases or []) if activity else 0
+
+        try:
+            phase_index = int(phase_index)
+        except (TypeError, ValueError):
+            return JsonResponse({"detail": "phase_index must be an integer"}, status=400)
+
+        if not (0 <= phase_index < total):
+            return JsonResponse({"detail": "Invalid phase_index"}, status=400)
+
+        room.phase_override_index = phase_index
+        room.save(update_fields=["phase_override_index"])
+
+    else:
+        return JsonResponse(
+            {"detail": "Invalid action. Use: pause, resume, advance, set_phase"},
+            status=400,
+        )
+
+    new_state = get_activity_state(room)
+    return JsonResponse({"detail": "OK", "state": new_state})

@@ -20,31 +20,35 @@ export type Message = {
 };
 
 export type Room = {
-	code: string;
-	name: string;
-	is_member?: boolean;
-	is_private: boolean;
-	created_by: { id: number; name: string } | null;
-	selected_activity: { id: number; name: string } | null;
-	activity: {
-		is_running: boolean;
-		finished: boolean;
-		activity_id: number | null;
-		activity_name: string | null;
-		phase_index?: number | null;
-		phase_name?: string | null;
-		phase_prompt?: string | null;
-		phase_ends_at?: string | null;
-		total_phases?: number | null;
-	};
+    code: string;
+    name: string;
+    is_member?: boolean;
+    is_private: boolean;
+    created_by: { id: number; name: string } | null;
+    selected_activity: { id: number; name: string } | null;
+    activity: {
+        is_running: boolean;
+        finished: boolean;
+        activity_id: number | null;
+        activity_name: string | null;
+        phase_index?: number | null;
+        phase_name?: string | null;
+        phase_prompt?: string | null;
+        phase_ends_at?: string | null;
+        total_phases?: number | null;
+        is_paused?: boolean;
+        phase_override_active?: boolean;
+    };
 };
+
 export type FacilitatorRoomStats = {
-	code: string;
-	name: string;
-	active_participants: number;
-	is_running: boolean;
-	current_activity: string;
-	post_count: number;
+    code: string;
+    name: string;
+    current_activity: string | null;
+    active_participants: number;
+    post_count: number;
+    is_running: boolean;
+    is_paused: boolean;
 };
 
 export type FacilitatorDashboardStatsResponse = {
@@ -482,3 +486,26 @@ export async function fetchRooms(): Promise<RoomListItem[]> {
 	return res.json();
 }
 
+export async function controlActivity(
+    code: string,
+    action: "pause" | "resume" | "advance" | "set_phase",
+    phase_index?: number
+) {
+    const res = await fetch(`${API_BASE_URL}api/rooms/${encodeURIComponent(code)}/control/`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...(phase_index !== undefined ? { phase_index } : {}) }),
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        let data: any = {};
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch {}
+        throw new Error(data.detail || `Control action failed (${res.status})`);
+    }
+
+    return res.json();
+}

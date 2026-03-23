@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { FacilitatorRoomStats } from "../api/client";
-import { fetchFacilitatorDashboardStats } from "../api/client";
+import { fetchFacilitatorDashboardStats, controlActivity } from "../api/client";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
@@ -40,6 +40,36 @@ export default function FacilitatorDashboardPage() {
             return hay.includes(q);
         });
     }, [rooms, query]);
+
+    async function handleControl(code: string, action: "pause" | "resume" | "advance") {
+        const previousRooms = rooms;
+
+        if (action === "pause") {
+            setRooms((curr) =>
+                curr.map((r) =>
+                    r.code === code
+                        ? { ...r, is_paused: true, is_running: false }
+                        : r
+                )
+            );
+        } else if (action === "resume") {
+            setRooms((curr) =>
+                curr.map((r) =>
+                    r.code === code
+                        ? { ...r, is_paused: false, is_running: true }
+                        : r
+                )
+            );
+        }
+
+        try {
+            await controlActivity(code, action);
+            await load();
+        } catch (e) {
+            setRooms(previousRooms);
+            setError(e instanceof Error ? e.message : "Control action failed");
+        }
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-primary/10 via-muted/40 to-background text-foreground px-4 py-10">
@@ -151,22 +181,43 @@ export default function FacilitatorDashboardPage() {
                                                     <span
                                                         className={[
                                                             "rounded-full border px-2 py-0.5",
-                                                            r.is_running
-                                                                ? "border-primary/40 bg-primary/10 text-primary"
-                                                                : "border-border bg-muted/30 text-muted-foreground",
+                                                            r.is_paused
+                                                                ? "border-amber-300 bg-amber-100 text-amber-800"
+                                                                : r.is_running
+                                                                    ? "border-primary/40 bg-primary/10 text-primary"
+                                                                    : "border-border bg-muted/30 text-muted-foreground",
                                                         ].join(" ")}
                                                     >
-                                                        {r.is_running ? "Running" : "Idle"}
+                                                        {r.is_paused ? "Paused" : r.is_running ? "Running" : "Idle"}
                                                     </span>
                                                 </div>
                                             </div>
+                                            <div className="flex flex-col gap-2 shrink-0">
+                                                {(r.is_running || r.is_paused) && (
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            variant="secondary"
+                                                            onClick={() => handleControl(r.code, r.is_paused ? "resume" : "pause")}
+                                                        >
+                                                            {r.is_paused ? "Resume" : "Pause"}
+                                                        </Button>
 
-                                            <Button
-                                                className="shrink-0"
-                                                onClick={() => navigate(`/facilitator/rooms/${r.code}/summary`)}
-                                            >
-                                                View summary
-                                            </Button>
+                                                        <Button
+                                                            variant="secondary"
+                                                            onClick={() => handleControl(r.code, "advance")}
+                                                            disabled={r.is_paused}
+                                                        >
+                                                            Next phase →
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                                <Button
+                                                    className="shrink-0"
+                                                    onClick={() => navigate(`/facilitator/rooms/${r.code}/summary`)}
+                                                >
+                                                    View summary
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

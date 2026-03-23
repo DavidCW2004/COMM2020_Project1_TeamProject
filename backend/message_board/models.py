@@ -26,6 +26,8 @@ class Room(models.Model):
     code = models.CharField(max_length=12, unique=True)
     name = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    phase_override_index = models.IntegerField(null=True, blank=True)
+    activity_paused_at = models.DateTimeField(null=True, blank=True)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
