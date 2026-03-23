@@ -168,11 +168,15 @@ export default function ActivityWorkspacePage() {
         setTimer(data.activity.is_paused ? null : secondsLeft(data.activity.phase_ends_at));
     }
 
-    async function fetchFinalAnswer(activityRunId?: string | null) {
+    async function fetchFinalAnswer(activityRunId?: string | null, options?: { silent?: boolean }) {
         if (!code || !activityRunId) return;
 
+        const silent = options?.silent ?? false;
+
         try {
-            setFinalAnswerLoading(true);
+            if (!silent) {
+                setFinalAnswerLoading(true);
+            }
             setFinalAnswerError(null);
 
             const params = new URLSearchParams({ activity_run_id: activityRunId });
@@ -191,7 +195,9 @@ export default function ActivityWorkspacePage() {
         } catch (e: any) {
             setFinalAnswerError(e.message ?? "Failed to load final answer options");
         } finally {
-            setFinalAnswerLoading(false);
+            if (!silent) {
+                setFinalAnswerLoading(false);
+            }
         }
     }
 
@@ -265,7 +271,7 @@ export default function ActivityWorkspacePage() {
         }
 
         finalAnswerPollRef.current = window.setInterval(() => {
-            fetchFinalAnswer(activity.activity_run_id!).catch((e) => {
+            fetchFinalAnswer(activity.activity_run_id!, { silent: true }).catch((e) => {
                 setFinalAnswerError(e.message ?? "Failed to poll final answer");
             });
         }, 1500);
@@ -462,7 +468,7 @@ export default function ActivityWorkspacePage() {
                                     </div>
                                 )}
 
-                                {finalAnswerLoading && (
+                                {finalAnswerLoading && !finalAnswer && (
                                     <div className="text-sm text-muted-foreground">Loading options…</div>
                                 )}
 
@@ -503,7 +509,7 @@ export default function ActivityWorkspacePage() {
                                                                 {isUserVote ? "Voted" : "Vote"}
                                                             </Button>
                                                         ) : (
-                                                            <span className="text-xs font-semibold text-emerald-700">Finalized</span>
+                                                            <span className="text-xs font-semibold text-emerald-700">Finalised</span>
                                                         )}
                                                     </div>
                                                 </div>
