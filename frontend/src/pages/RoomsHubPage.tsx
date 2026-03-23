@@ -142,7 +142,6 @@ export default function RoomsHubPage() {
             const msg = err instanceof Error ? err.message : "Failed to join room";
 
             // If the backend indicates a password is needed, reveal the password field
-            // (adjust the condition to match your backend error message)
             if (!joinNeedsPassword && msg.toLowerCase().includes("password")) {
                 setJoinNeedsPassword(true);
                 setModalError("This room is private. Enter the password to join.");
@@ -155,23 +154,40 @@ export default function RoomsHubPage() {
         }
     };
 
-    async function loadRooms() {
-        setRoomsLoading(true);
-        setRoomsError(null);
+    async function loadRooms(options?: { silent?: boolean }) {
+        const silent = options?.silent ?? false;
+
+        if (!silent) {
+            setRoomsLoading(true);
+        }
+
         try {
             const data = await fetchRooms();
-            const active = data.filter((r) => r.members_count > 0 || r.is_running);
-            setRooms(active);
+            const active = data.filter((r) => r.members_count > 0 || r.is_running || r.is_paused);
+
+            setRooms((prev) => {
+                const prevStr = JSON.stringify(prev);
+                const nextStr = JSON.stringify(active);
+                return prevStr === nextStr ? prev : active;
+            });
+
+            setRoomsError(null);
         } catch (e) {
             setRoomsError(e instanceof Error ? e.message : "Failed to load rooms");
         } finally {
-            setRoomsLoading(false);
+            if (!silent) {
+                setRoomsLoading(false);
+            }
         }
     }
 
     useEffect(() => {
         void loadRooms();
-        const id = window.setInterval(() => void loadRooms(), 5000);
+
+        const id = window.setInterval(() => {
+            void loadRooms({ silent: true });
+        }, 5000);
+
         return () => window.clearInterval(id);
     }, []);
 
@@ -212,7 +228,7 @@ export default function RoomsHubPage() {
                 </div>
                 <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
-                        <h2 className="text-lg font-semibold">Active rooms</h2>
+                        <h2 className="text-lg font-semibold">Rooms</h2>
                         <div className="text-sm text-muted-foreground">
                             {roomsLoading ? "Loading…" : `${filtered.length} shown`}
                         </div>
@@ -272,12 +288,14 @@ export default function RoomsHubPage() {
                                                         Status:{" "}
                                                         <span
                                                             className={
-                                                                r.is_running
-                                                                    ? "font-semibold text-primary"
-                                                                    : "font-semibold text-foreground"
+                                                                r.is_paused
+                                                                    ? "font-semibold text-amber-700"
+                                                                    : r.is_running
+                                                                        ? "font-semibold text-primary"
+                                                                        : "font-semibold text-foreground"
                                                             }
                                                         >
-                                                            {r.is_running ? "Running" : "Idle"}
+                                                            {r.is_paused ? "Paused" : r.is_running ? "Running" : "Idle"}
                                                         </span>
                                                     </span>
                                                 </div>

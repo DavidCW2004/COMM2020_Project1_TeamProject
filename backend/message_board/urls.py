@@ -16,5 +16,6 @@ urlpatterns = [
     path("rooms/<str:code>/summary/", views.session_summary, name="session_summary"),
     path("rooms/<str:code>/summary/export/", views.export_summary_pdf, name="export_summary_pdf"),
     path("rooms/<str:code>/final-answer/", views.final_answer, name="final_answer"),
+    path("rooms/<str:code>/control/", views.control_activity),
 
 ] + router.urls

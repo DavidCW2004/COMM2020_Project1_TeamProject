@@ -10,6 +10,7 @@ from message_board.serializers import ActivitySerializer
 from message_board.summary_service import generate_summary
 from message_board.pdf_generator import generate_summary_pdf
 from .serializers import FacilitatorAgentSerializer
+from message_board.views import get_activity_state
 
 
 
@@ -85,14 +86,20 @@ def facilitator_dashboard_stats(request):
     room_data = []
 
     for room in rooms:
+        state = get_activity_state(room)
+
         room_data.append(
             {
                 "code": room.code,
                 "name": room.name,
                 "active_participants": room.members.count(),
-                "is_running": room.activity_is_running,
-                "current_activity": room.selected_activity.name if room.selected_activity else "None",
-                "post_count": Post.objects.filter(room=room, activity_run_id=room.activity_run_id).count(),
+                "is_running": state.get("is_running", False),
+                "is_paused": state.get("is_paused", False),
+                "current_activity": state.get("activity_name") or "None",
+                "post_count": Post.objects.filter(
+                    room=room,
+                    activity_run_id=room.activity_run_id
+                ).count(),
             }
         )
 
