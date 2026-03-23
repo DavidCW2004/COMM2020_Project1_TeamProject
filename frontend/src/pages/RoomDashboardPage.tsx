@@ -32,6 +32,7 @@ export default function RoomDashboardPage() {
     const [copiedCode, setCopiedCode] = useState(false);
     const [noticeDismissed, setNoticeDismissed] = useState(false);
 
+
     const currentUser = useMemo(() => {
         const raw = localStorage.getItem("sst:user");
         if (!raw) return null;
