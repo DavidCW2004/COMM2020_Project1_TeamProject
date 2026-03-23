@@ -66,21 +66,30 @@ def rooms(request):
 
         data = []
         for r in qs:
+            state = get_activity_state(r)
+
             data.append(
                 {
                     "code": r.code,
                     "name": r.name,
                     "members_count": r.members_count,
-                    "is_running": r.activity_is_running,
-                    "selected_activity": {"id": r.selected_activity_id, "name": r.selected_activity.name}
-                    if r.selected_activity_id
-                    else None,
+                    "is_running": state.get("is_running", False),
+                    "is_paused": state.get("is_paused", False),
+                    "finished": state.get("finished", False),
+                    "selected_activity": (
+                        {
+                            "id": r.selected_activity.id,
+                            "name": r.selected_activity.name,
+                        }
+                        if r.selected_activity
+                        else None
+                    ),
                     "created_at": r.created_at.isoformat(),
                 }
             )
 
         return JsonResponse(data, safe=False, status=200)
-
+    
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed"}, status=405)
 

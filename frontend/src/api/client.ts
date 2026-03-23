@@ -90,12 +90,14 @@ export type AgentDTO = {
 };
 
 export type RoomListItem = {
-	code: string;
-	name: string;
-	members_count: number;
-	is_running: boolean;
-	selected_activity: { id: number; name: string } | null;
-	created_at: string;
+    code: string;
+    name: string;
+    members_count: number;
+    is_running: boolean;
+    is_paused?: boolean;
+    finished?: boolean;
+    selected_activity: { id: number; name: string } | null;
+    created_at: string;
 };
 
 export async function createTempAccount(displayName: string, role: "learner" | "facilitator"): Promise<AuthUserDTO> {
