@@ -11,32 +11,49 @@ export default function FacilitatorDashboardPage() {
     const [rooms, setRooms] = useState<FacilitatorRoomStats[]>([]);
     const [query, setQuery] = useState("");
     const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
-
+    const [initialLoading, setInitialLoading] = useState(true);
+    
     async function load(options?: { silent?: boolean }) {
-        const silent = options?.silent ?? false;
+    const silent = options?.silent ?? false;
 
-        if (!silent) {
-            setLoading(true);
-        }
+    if (!silent) {
+        setInitialLoading(true);
+    }
 
-        try {
-            const data = await fetchFacilitatorDashboardStats();
+    try {
+        const data = await fetchFacilitatorDashboardStats();
+        const next = data.rooms ?? [];
 
-            setRooms((prev) => {
-                const next = data.rooms ?? [];
-                return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
-            });
+        setRooms((prev) => {
+            if (prev.length === next.length) {
+                const unchanged = prev.every((oldRoom, i) => {
+                    const newRoom = next[i];
+                    return (
+                        oldRoom.code === newRoom.code &&
+                        oldRoom.name === newRoom.name &&
+                        oldRoom.current_activity === newRoom.current_activity &&
+                        oldRoom.active_participants === newRoom.active_participants &&
+                        oldRoom.post_count === newRoom.post_count &&
+                        oldRoom.is_running === newRoom.is_running &&
+                        oldRoom.is_paused === newRoom.is_paused
+                    );
+                });
 
-            setError(null);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to load dashboard");
-        } finally {
-            if (!silent) {
-                setLoading(false);
+                if (unchanged) return prev;
             }
+
+            return next;
+        });
+
+        setError(null);
+    } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load dashboard");
+    } finally {
+        if (!silent) {
+            setInitialLoading(false);
         }
     }
+}
 
     useEffect(() => {
         void load();
@@ -102,8 +119,8 @@ export default function FacilitatorDashboardPage() {
                         </div>
 
                         <div className="flex gap-2">
-                            <Button variant="secondary" onClick={() => void load()} disabled={loading}>
-                                {loading ? "Loading…" : "Refresh"}
+                            <Button variant="secondary" onClick={() => void load()} disabled={initialLoading}>
+                                {initialLoading ? "Loading…" : "Refresh"}
                             </Button>
                             <Button onClick={() => navigate("/facilitator/activities")}>
                                 Manage activities
@@ -124,7 +141,7 @@ export default function FacilitatorDashboardPage() {
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                         <h2 className="text-lg font-semibold">Rooms</h2>
                         <div className="text-sm text-muted-foreground">
-                            {loading ? "Loading…" : `${filtered.length} shown`}
+                            {initialLoading ? "Loading…" : `${filtered.length} shown`}
                         </div>
                     </div>
 
@@ -135,7 +152,7 @@ export default function FacilitatorDashboardPage() {
                             </div>
                         )}
 
-                        {!error && loading && (
+                        {!error && initialLoading && (
                             <div className="space-y-3">
                                 {Array.from({ length: 5 }).map((_, i) => (
                                     <div key={i} className="rounded-lg border border-border bg-background p-4">
@@ -147,7 +164,7 @@ export default function FacilitatorDashboardPage() {
                             </div>
                         )}
 
-                        {!error && !loading && filtered.length === 0 && (
+                        {!error && !initialLoading && filtered.length === 0 && (
                             <div className="rounded-lg border border-border bg-muted/40 p-8 text-center">
                                 <div className="text-base font-semibold">No rooms found</div>
                                 <div className="mt-2 text-sm text-muted-foreground">
@@ -156,7 +173,7 @@ export default function FacilitatorDashboardPage() {
                             </div>
                         )}
 
-                        {!error && !loading && filtered.length > 0 && (
+                        {!error && !initialLoading && filtered.length > 0 && (
                             <div className="grid gap-3">
                                 {filtered.map((r) => (
                                     <div
