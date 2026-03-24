@@ -198,8 +198,33 @@ def _create(room, agent: Agent, rule_name: str, message: str, explanation: str, 
         recipient=recipient, 
     )
     
+def get_phase_started_at(room, phase_index):
+    activity = getattr(room, "selected_activity", None) or getattr(room, "activity", None)
+    if not activity or room.activity_started_at is None or phase_index is None:
+        return None
+
+    phases = activity.phases or []
+    if phase_index < 0 or phase_index >= len(phases):
+        return room.activity_started_at
+
+    cumulative = 0
+    for idx, ph in enumerate(phases):
+        if idx == phase_index:
+            return room.activity_started_at + timedelta(seconds=cumulative)
+
+        duration_minutes = float(ph.get("time_limit_minutes") or 0)
+        duration = int(duration_minutes * 60) or 60
+        cumulative += duration
+
+    return room.activity_started_at
 
 def check_individual_inactivity_rule(room, phase_index=None):
+    from .views import get_activity_state
+
+    state = get_activity_state(room)
+    if state.get("finished", False) or state.get("is_paused", False):
+        return False
+
     cfg = get_agent_config(room, "inactivity")
     if not cfg.get("enabled", True):
         return False
@@ -211,6 +236,10 @@ def check_individual_inactivity_rule(room, phase_index=None):
 
     members_qs = room.members.all()
     if not members_qs.exists():
+        return False
+
+    phase_started_at = get_phase_started_at(room, phase_index)
+    if phase_started_at and now - phase_started_at < join_grace:
         return False
 
     threshold_time = now - threshold
@@ -740,9 +769,15 @@ def check_rude_message_rule(room, post) -> bool:
 
 #the check rules functions have been split for better performance and to allow regular checks on room/phase rules
 
-def check_room_state_rules(room, phase_index=None): #only checks the rules that apply to the whole room/phase
+def check_room_state_rules(room, phase_index=None):
+    from .views import get_activity_state
+
+    state = get_activity_state(room)
+    if state.get("finished", False) or state.get("is_paused", False):
+        return []
+
     triggered = []
-    
+
     if check_individual_inactivity_rule(room, phase_index=phase_index):
         triggered.append("individual_inactivity")
     if check_equity_rule(room, phase_index=phase_index):

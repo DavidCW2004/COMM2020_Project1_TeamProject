@@ -432,7 +432,7 @@ export default function ActivityWorkspacePage() {
                             </div>
                         )}
 
-                        {!loading && messages.length === 0 && (
+                        {!loading && !activity?.finished && messages.length === 0 && (
                             <div className="text-sm text-muted-foreground">No messages yet.</div>
                         )}
 
@@ -459,7 +459,7 @@ export default function ActivityWorkspacePage() {
                         ))}
 
                         {activity?.finished && (
-                            <div className="mt-6 pt-5 border-t border-border space-y-3">
+                            <div className="mt-4 space-y-3">
                                 <h3 className="text-lg font-semibold">Choose final conclusion</h3>
 
                                 {finalAnswerError && (
