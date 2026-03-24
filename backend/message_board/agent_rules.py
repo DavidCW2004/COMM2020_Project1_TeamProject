@@ -740,9 +740,15 @@ def check_rude_message_rule(room, post) -> bool:
 
 #the check rules functions have been split for better performance and to allow regular checks on room/phase rules
 
-def check_room_state_rules(room, phase_index=None): #only checks the rules that apply to the whole room/phase
+def check_room_state_rules(room, phase_index=None):
+    from .views import get_activity_state
+
+    state = get_activity_state(room)
+    if state.get("finished", False) or state.get("is_paused", False):
+        return []
+
     triggered = []
-    
+
     if check_individual_inactivity_rule(room, phase_index=phase_index):
         triggered.append("individual_inactivity")
     if check_equity_rule(room, phase_index=phase_index):

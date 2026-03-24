@@ -432,8 +432,14 @@ export default function ActivityWorkspacePage() {
                             </div>
                         )}
 
-                        {!loading && messages.length === 0 && (
+                        {!loading && !activity?.finished && messages.length === 0 && (
                             <div className="text-sm text-muted-foreground">No messages yet.</div>
+                        )}
+
+                        {activity?.finished && !finalAnswerLoading && finalAnswer?.posts?.length === 0 && (
+                            <div className="text-sm text-muted-foreground italic">
+                                No messages were posted in the decide phase.
+                            </div>
                         )}
 
                         {messages.map((m) => (
@@ -459,7 +465,7 @@ export default function ActivityWorkspacePage() {
                         ))}
 
                         {activity?.finished && (
-                            <div className="mt-6 pt-5 border-t border-border space-y-3">
+                            <div className="mt-4 space-y-3">
                                 <h3 className="text-lg font-semibold">Choose final conclusion</h3>
 
                                 {finalAnswerError && (
