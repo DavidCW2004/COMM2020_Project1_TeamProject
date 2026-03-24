@@ -255,6 +255,7 @@ def messages(request):
                     "activity_id": state.get("activity_id"),
                     "activity_name": state.get("activity_name"),
                     "activity_run_id": str(room.activity_run_id) if room.activity_run_id else None,
+                    "phase_index": state.get("phase_index"),
                     "phase_name": state.get("phase_name"),
                     "phase_prompt": state.get("phase_prompt"),
                     "phase_ends_at": state.get("phase_ends_at"),
