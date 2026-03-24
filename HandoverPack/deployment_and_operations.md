@@ -159,26 +159,6 @@ Maintainers are the admins of the application. They have more permissions than f
 
 Session summaries are stored and facilitators or maintainers can access summaries and export to PDF.
 
-## Maintainer Account Creation
-
-Maintainer users can be created in the Django shell:
-
-```python
-from django.contrib.auth.models import User
-from message_board.models import UserProfile
-
-u = User.objects.create_user(
-    username="<maintainer_username>",
-    password="<maintainer_password>"
-)
-u.first_name = "Maintainer"
-u.save()
-
-UserProfile.objects.update_or_create(
-    user=u,
-    defaults={"role": "maintainer"},
-)
-```
 
 ## Current Deployment Limitations
 
