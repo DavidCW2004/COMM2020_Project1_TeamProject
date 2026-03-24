@@ -436,12 +436,6 @@ export default function ActivityWorkspacePage() {
                             <div className="text-sm text-muted-foreground">No messages yet.</div>
                         )}
 
-                        {activity?.finished && !finalAnswerLoading && finalAnswer?.posts?.length === 0 && (
-                            <div className="text-sm text-muted-foreground italic">
-                                No messages were posted in the decide phase.
-                            </div>
-                        )}
-
                         {messages.map((m) => (
                             <div key={`post-${m.id}`} className="rounded-lg border border-border bg-muted/20 p-3">
                                 <div className="flex items-center gap-2 flex-wrap">
